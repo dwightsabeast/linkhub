@@ -35,8 +35,8 @@ note()  { printf "%s   %s%s\n"  "$C_DIM"    "$*"        "$C_RESET"; }
 
 # ── Defaults & config ───────────────────────────────────────────────
 APP_NAME="linkhub"
-ALPINE_TEMPLATE="alpine-3.20-default_20240908_amd64.tar.xz"
-ALPINE_RELEASE="3.20"
+ALPINE_TEMPLATE="alpine-3.23-default_20260116_amd64.tar.xz"
+ALPINE_RELEASE="3.23"
 DEFAULT_CT_ID=""        # auto-pick next free if empty
 DEFAULT_HOSTNAME="linkhub"
 DEFAULT_DISK_GB=1
