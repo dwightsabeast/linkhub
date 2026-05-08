@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<!--
+  admin.html — admin / config builder shell.
+
+  This page is a static skeleton. All interactivity lives in
+  admin.js (Round 3): loading current config from /api/config,
+  binding form inputs, applying voice presets, serializing back
+  to JSON, posting saves, uploading avatars.
+
+  Theme: defaults to light. admin.js toggles [data-theme] on
+  <html> and persists to localStorage. The theme toggle button
+  is wired up by admin.js.
+
+  Auth: this page is gated behind whichever auth mode the server
+  was started with. By the time the HTML loads, the request is
+  already authenticated — there's no client-side auth UI.
+-->
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LinkHub — Config builder</title>
+<meta name="robots" content="noindex, nofollow" />
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+<link rel="stylesheet" href="/static/admin.css" />
+</head>
+<body>
+
+<button id="theme-toggle" class="theme-toggle" aria-label="Toggle color theme" type="button">
+  <!-- icon swapped by admin.js based on current theme -->
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+       stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+  </svg>
+</button>
+
+<a class="admin-view-live" href="/" target="_blank" rel="noopener">view live page &rarr;</a>
+
+<div class="admin-wrap">
+
+  <header class="admin-top">
+    <div>
+      <div class="admin-sub">LinkHub</div>
+      <h1 class="admin-h1">Config builder</h1>
+    </div>
+    <div id="admin-status" class="admin-status" role="status" aria-live="polite"></div>
+  </header>
+
+  <div class="admin-grid">
+
+    <!-- ============== Voice presets =============== -->
+    <section class="admin-card admin-full admin-presets">
+      <h2 class="admin-h2">Voice preset</h2>
+      <p class="admin-hint admin-hint-lead">
+        Pick a starting voice. Each preset fills the profile, links, and accent &mdash; edit freely after.
+      </p>
+      <!-- admin.js renders preset buttons into here -->
+      <div id="preset-row" class="admin-preset-row"></div>
+    </section>
+
+    <!-- ============== Profile =============== -->
+    <section class="admin-card">
+      <h2 class="admin-h2">Profile</h2>
+
+      <label class="admin-label" for="profile-name">Name</label>
+      <input id="profile-name" type="text" data-bind="profile.name" maxlength="32" />
+
+      <label class="admin-label" for="profile-tagline">Tagline</label>
+      <input id="profile-tagline" type="text" data-bind="profile.tagline" maxlength="60" />
+
+      <label class="admin-label" for="profile-bio">Bio</label>
+      <textarea id="profile-bio" data-bind="profile.bio" maxlength="240"></textarea>
+
+      <label class="admin-label" for="profile-location">Location</label>
+      <input id="profile-location" type="text" data-bind="profile.location" />
+
+      <label class="admin-label">Avatar</label>
+      <div class="admin-avatar-row">
+        <div class="admin-avatar-preview">
+          <img id="avatar-preview" src="/static/assets/avatar.svg" alt="" />
+        </div>
+        <div class="admin-avatar-controls">
+          <input id="avatar-file" type="file"
+                 accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden />
+          <button type="button" id="avatar-upload-btn">Upload new&hellip;</button>
+          <button type="button" id="avatar-reset-btn" class="admin-secondary">Use default</button>
+          <p class="admin-hint">PNG, JPEG, WebP, or SVG. Max 2 MB. 400&times;400 looks best.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============== Meta & theme =============== -->
+    <section class="admin-card">
+      <h2 class="admin-h2">Meta &amp; theme</h2>
+
+      <label class="admin-label" for="meta-title">Page title</label>
+      <input id="meta-title" type="text" data-bind="meta.title" />
+
+      <label class="admin-label" for="meta-description">Meta description</label>
+      <textarea id="meta-description" data-bind="meta.description"></textarea>
+
+      <div class="admin-row">
+        <div>
+          <label class="admin-label" for="theme-accent">Accent (light)</label>
+          <div class="admin-pair">
+            <input id="theme-accent-color" type="color" data-bind="theme.accent" />
+            <input id="theme-accent" type="text" data-bind="theme.accent" />
+          </div>
+        </div>
+        <div>
+          <label class="admin-label" for="theme-accent-dark">Accent (dark)</label>
+          <div class="admin-pair">
+            <input id="theme-accent-dark-color" type="color" data-bind="theme.accentDark" />
+            <input id="theme-accent-dark" type="text" data-bind="theme.accentDark" />
+          </div>
+        </div>
+      </div>
+
+      <p class="admin-hint">
+        Theme on the public page is fixed to light. The accent applies there;
+        the dark accent is for any future use and the admin&rsquo;s own dark mode.
+      </p>
+    </section>
+
+    <!-- ============== Primary links =============== -->
+    <section class="admin-card admin-full">
+      <h2 class="admin-h2">Primary links</h2>
+      <!-- admin.js renders link rows into here -->
+      <div id="link-list"></div>
+      <div class="admin-actions">
+        <button type="button" id="add-link-btn">+ add link</button>
+      </div>
+      <p class="admin-hint">Mark one as <strong>featured</strong> for visual emphasis.</p>
+    </section>
+
+    <!-- ============== Social =============== -->
+    <section class="admin-card admin-full">
+      <h2 class="admin-h2">Social profiles</h2>
+      <div id="social-list"></div>
+      <div class="admin-actions">
+        <button type="button" id="add-social-btn">+ add social</button>
+      </div>
+    </section>
+
+    <!-- ============== Footer =============== -->
+    <section class="admin-card">
+      <h2 class="admin-h2">Footer</h2>
+      <label class="admin-checkbox">
+        <input id="footer-show-year" type="checkbox" data-bind="footer.showYear" />
+        <span>Show current year</span>
+      </label>
+      <label class="admin-label" for="footer-text">Footer text</label>
+      <input id="footer-text" type="text" data-bind="footer.text" maxlength="80" />
+    </section>
+
+    <!-- ============== Generated config =============== -->
+    <section class="admin-card admin-full">
+      <h2 class="admin-h2">Generated config.json</h2>
+      <pre id="config-output" class="admin-pre"></pre>
+      <div class="admin-actions">
+        <button type="button" id="save-btn" class="admin-primary">Save changes</button>
+        <button type="button" id="copy-btn">Copy</button>
+        <button type="button" id="download-btn">Download config.json</button>
+        <button type="button" id="reload-btn" class="admin-secondary">Reload from server</button>
+      </div>
+      <p class="admin-hint">
+        Save writes the config to disk on the server.
+        Download grabs the same JSON for backup or offline editing.
+      </p>
+    </section>
+
+  </div>
+</div>
+
+<!-- Hidden datalist of valid icon names. Populated by admin.js
+     from the server's icon allowlist (GET /api/icons). -->
+<datalist id="icon-options"></datalist>
+
+<!-- Preset switch confirm modal. Hidden by default; toggled by admin.js. -->
+<div id="preset-modal" class="admin-modal-backdrop" hidden>
+  <div class="admin-modal" role="dialog" aria-labelledby="preset-modal-title">
+    <div class="admin-sub">Switch preset</div>
+    <h3 class="admin-h2" id="preset-modal-title">Replace your current copy?</h3>
+    <p class="admin-hint">
+      Loading <strong id="preset-modal-name">this preset</strong>
+      will overwrite the profile, links, social row, and accent. This can&rsquo;t be undone here
+      &mdash; download your config first if you want to keep it.
+    </p>
+    <div class="admin-actions">
+      <button type="button" id="preset-confirm-btn" class="admin-primary">Replace</button>
+      <button type="button" id="preset-cancel-btn">Keep current</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast region. admin.js drops messages here. -->
+<div id="toast" class="admin-toast" role="status" aria-live="polite" hidden></div>
+
+<!-- Templates: cloned by admin.js to render rows.
+     Using <template> means they don't render but are still parsed. -->
+
+<template id="tmpl-link-row">
+  <div class="admin-item" data-link-row>
+    <div class="admin-item-head">
+      <span class="admin-item-ttl"></span>
+      <span class="admin-item-controls">
+        <button type="button" class="admin-icon-btn" data-action="up" aria-label="Move up">&uarr;</button>
+        <button type="button" class="admin-icon-btn" data-action="down" aria-label="Move down">&darr;</button>
+        <button type="button" class="admin-icon-btn admin-danger" data-action="remove">remove</button>
+      </span>
+    </div>
+    <div class="admin-row">
+      <div>
+        <label class="admin-label">Label</label>
+        <input type="text" data-field="label" maxlength="36" />
+      </div>
+      <div>
+        <label class="admin-label">URL</label>
+        <input type="text" data-field="url" />
+      </div>
+    </div>
+    <label class="admin-label">Description (optional)</label>
+    <input type="text" data-field="description" maxlength="60" />
+    <div class="admin-row">
+      <div>
+        <label class="admin-label">Icon</label>
+        <input type="text" data-field="icon" list="icon-options" />
+      </div>
+      <div>
+        <label class="admin-label">Featured</label>
+        <div class="admin-checkbox-wrap">
+          <label class="admin-checkbox">
+            <input type="checkbox" data-field="featured" />
+            <span>highlight this link</span>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<template id="tmpl-social-row">
+  <div class="admin-item admin-item-compact" data-social-row>
+    <div class="admin-row">
+      <div>
+        <label class="admin-label">Platform</label>
+        <input type="text" data-field="platform" list="icon-options" />
+      </div>
+      <div>
+        <label class="admin-label">URL</label>
+        <input type="text" data-field="url" />
+      </div>
+    </div>
+    <div class="admin-actions">
+      <button type="button" class="admin-icon-btn" data-action="up" aria-label="Move up">&uarr;</button>
+      <button type="button" class="admin-icon-btn" data-action="down" aria-label="Move down">&darr;</button>
+      <button type="button" class="admin-icon-btn admin-danger" data-action="remove">remove</button>
+    </div>
+  </div>
+</template>
+
+<template id="tmpl-preset-button">
+  <button type="button" class="admin-preset" data-preset>
+    <span class="admin-preset-swatch" aria-hidden="true"></span>
+    <span class="admin-preset-body">
+      <span class="admin-preset-name"></span>
+      <span class="admin-preset-desc"></span>
+    </span>
+  </button>
+</template>
+
+<script src="/static/admin.js" defer></script>
+</body>
+</html>

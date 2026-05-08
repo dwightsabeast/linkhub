@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+{{- /*
+  index.html.tmpl — public profile, server-rendered.
+
+  Receives the full Config struct from internal/server/handlers.go.
+  No JavaScript on this page by design. Theme is fixed to light;
+  the admin tool toggles its own theme independently.
+
+  Template helpers (registered in handlers.go):
+    iconSVG <name>     -> template.HTML, returns an inline <svg>
+                          for the given icon name from the bundled set.
+
+  Animation entry timings live in styles.css (.link:nth-child(n)).
+  No nth-child stagger is applied to social pills — they fade in
+  together as one row.
+*/ -}}
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>{{.Meta.Title}}</title>
+{{- if .Meta.Description}}
+<meta name="description" content="{{.Meta.Description}}" />
+{{- end}}
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+<link rel="stylesheet" href="/static/styles.css" />
+{{- /* Open Graph / Twitter — minimal, no images. Avatar isn't a
+       reliable OG card image (1:1 instead of 1.91:1) so we omit. */ -}}
+<meta property="og:title" content="{{.Meta.Title}}" />
+{{- if .Meta.Description}}
+<meta property="og:description" content="{{.Meta.Description}}" />
+{{- end}}
+<meta property="og:type" content="website" />
+</head>
+<body>
+<main class="page">
+  <header class="profile">
+    <div class="avatar-wrap">
+      {{- /* Avatar URL: served by the avatar handler at /avatar.
+             Falls back to bundled default if the field is empty. */ -}}
+      <img class="avatar"
+           src="{{if .Profile.Avatar}}{{.Profile.Avatar}}{{else}}/static/assets/avatar.svg{{end}}"
+           alt="{{if .Profile.Name}}{{.Profile.Name}} avatar{{else}}avatar{{end}}" />
+    </div>
+    <h1 class="name">{{if .Profile.Name}}{{.Profile.Name}}{{else}}&nbsp;{{end}}</h1>
+    {{- if .Profile.Tagline}}
+    <p class="tagline">{{.Profile.Tagline}}</p>
+    {{- end}}
+    {{- if .Profile.Bio}}
+    <p class="bio">{{.Profile.Bio}}</p>
+    {{- end}}
+    {{- if .Profile.Location}}
+    <p class="location">{{.Profile.Location}}</p>
+    {{- end}}
+  </header>
+
+  <hr class="rule" aria-hidden="true" />
+
+  {{- if .Links}}
+  <section class="links" aria-label="Primary links">
+    {{- range .Links}}
+    <a class="link{{if .Featured}} is-featured{{end}}"
+       href="{{.URL}}"
+       target="_blank"
+       rel="noopener noreferrer">
+      <span class="link-icon">{{iconSVG .Icon}}</span>
+      <span class="link-body">
+        <span class="link-label">{{.Label}}</span>
+        {{- if .Description}}
+        <span class="link-desc">{{.Description}}</span>
+        {{- end}}
+      </span>
+      <span class="link-arrow">{{iconSVG "arrow"}}</span>
+    </a>
+    {{- end}}
+  </section>
+  {{- end}}
+
+  {{- if .Social}}
+  <nav class="social" aria-label="Social profiles">
+    {{- range .Social}}
+    <a class="social-link"
+       href="{{.URL}}"
+       target="_blank"
+       rel="noopener noreferrer"
+       aria-label="{{.Platform}}">
+      {{iconSVG .Platform}}
+    </a>
+    {{- end}}
+  </nav>
+  {{- end}}
+
+  {{- /* Footer composes "© YEAR" + custom text, joined by ·.
+         Year is rendered server-side from .Now (passed by handler). */ -}}
+  {{- $showYear := .Footer.ShowYear}}
+  {{- $text := .Footer.Text}}
+  {{- if or $showYear $text}}
+  <footer class="footer">
+    {{- if $showYear}}&copy; {{.Year}}{{end}}
+    {{- if and $showYear $text}} &middot; {{end}}
+    {{- if $text}}{{$text}}{{end}}
+  </footer>
+  {{- end}}
+</main>
+</body>
+</html>

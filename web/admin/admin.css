@@ -1,0 +1,452 @@
+/* ============================================================
+   LinkHub — admin / config builder styles
+
+   Standalone stylesheet: tokens + admin chrome + dark theme.
+   The admin page doesn't share styles.css with the public page —
+   it has different layout (full-width form grid vs. 520px column),
+   different scope (no profile rendering), and needs dark-mode
+   support that the public page deliberately omits.
+   ============================================================ */
+
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,300..900,0..100&family=Geist:wght@300..700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+:root {
+  /* ---------- Color: light ---------- */
+  --bg:           #F4F0E8;
+  --bg-elev:      #FBF8F1;
+  --ink:          #14130F;
+  --ink-soft:     #4A4740;
+  --ink-faint:    #8A8478;
+  --rule:         #D8D2C2;
+  --accent:       #3D5A4C;
+  --accent-soft:  rgba(61, 90, 76, 0.08);
+  --danger:       #B23A3A;
+
+  --shadow-card:  0 1px 0 rgba(20,19,15,0.04), 0 8px 24px -12px rgba(20,19,15,0.12);
+  --shadow-hover: 0 1px 0 rgba(20,19,15,0.06), 0 16px 36px -16px rgba(20,19,15,0.22);
+
+  /* ---------- Type ---------- */
+  --font-display: "Fraunces", "Iowan Old Style", "Palatino", Georgia, serif;
+  --font-body:    "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* ---------- Radii ---------- */
+  --radius-sm:    8px;
+  --radius:       14px;
+  --radius-pill:  999px;
+
+  /* ---------- Layout ---------- */
+  --w-admin:      960px;
+
+  /* ---------- Motion ---------- */
+  --ease:         cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+[data-theme="dark"] {
+  --bg:           #14130F;
+  --bg-elev:      #1C1B16;
+  --ink:          #ECE6D6;
+  --ink-soft:     #B8B1A0;
+  --ink-faint:    #6F6A5E;
+  --rule:         #2C2A22;
+  --accent:       #8FB3A4;
+  --accent-soft:  rgba(143, 179, 164, 0.12);
+  --shadow-card:  0 1px 0 rgba(0,0,0,0.4), 0 8px 24px -12px rgba(0,0,0,0.6);
+  --shadow-hover: 0 1px 0 rgba(0,0,0,0.5), 0 16px 36px -16px rgba(0,0,0,0.8);
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body);
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+body { min-height: 100vh; }
+
+/* ============================================================
+   Top-corner buttons
+   ============================================================ */
+.theme-toggle {
+  position: fixed; top: 20px; right: 20px;
+  width: 38px; height: 38px;
+  border: 1px solid var(--rule); background: var(--bg-elev);
+  color: var(--ink-soft); border-radius: var(--radius-pill);
+  display: grid; place-items: center; cursor: pointer;
+  z-index: 10;
+  transition: color 0.2s var(--ease),
+              border-color 0.2s var(--ease),
+              transform 0.2s var(--ease);
+}
+.theme-toggle:hover {
+  color: var(--ink); border-color: var(--ink-faint);
+  transform: scale(1.05);
+}
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.admin-view-live {
+  position: fixed; top: 28px; right: 70px;
+  font-family: var(--font-mono); font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft); text-decoration: none;
+  border-bottom: 1px dashed var(--rule);
+  padding-bottom: 1px;
+  z-index: 10;
+}
+.admin-view-live:hover {
+  color: var(--accent); border-color: var(--accent);
+}
+
+/* ============================================================
+   Wrap + header
+   ============================================================ */
+.admin-wrap {
+  max-width: var(--w-admin);
+  margin: 0 auto;
+  padding: 40px 28px 80px;
+}
+
+.admin-top {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 16px; margin-bottom: 32px;
+  flex-wrap: wrap;
+}
+.admin-sub {
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: 0.72rem; letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.admin-h1 {
+  font-family: var(--font-display); font-weight: 500;
+  font-size: 2rem; letter-spacing: -0.02em;
+  margin: 0;
+}
+.admin-status {
+  font-family: var(--font-mono); font-size: 0.78rem;
+  color: var(--ink-faint);
+  letter-spacing: 0.04em;
+  min-height: 1em;
+}
+.admin-status.is-saving { color: var(--ink-soft); }
+.admin-status.is-saved  { color: var(--accent); }
+.admin-status.is-error  { color: var(--danger); }
+
+/* ============================================================
+   Grid
+   ============================================================ */
+.admin-grid {
+  display: grid; grid-template-columns: 1fr;
+  gap: 28px;
+}
+@media (min-width: 880px) {
+  .admin-grid { grid-template-columns: 1fr 1fr; }
+}
+
+.admin-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 22px;
+}
+.admin-full { grid-column: 1 / -1; }
+
+.admin-h2 {
+  font-family: var(--font-display); font-weight: 500;
+  font-size: 1.15rem; margin: 0 0 16px;
+  letter-spacing: -0.01em;
+}
+
+/* ============================================================
+   Form fields
+   ============================================================ */
+.admin-label {
+  display: block;
+  font-size: 0.78rem; color: var(--ink-soft);
+  margin: 12px 0 6px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em; text-transform: uppercase;
+}
+.admin-card input[type="text"],
+.admin-card input[type="url"],
+.admin-card input[type="email"],
+.admin-card input:not([type="checkbox"]):not([type="color"]):not([type="file"]),
+.admin-card textarea,
+.admin-card select {
+  width: 100%; padding: 10px 12px;
+  font: inherit; color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--rule); border-radius: var(--radius-sm);
+  font-size: 0.92rem;
+}
+.admin-card input:focus,
+.admin-card textarea:focus,
+.admin-card select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+.admin-card textarea { resize: vertical; min-height: 70px; }
+
+.admin-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+}
+
+.admin-pair {
+  display: flex; align-items: center; gap: 10px;
+}
+.admin-pair input[type="color"] {
+  width: 44px; height: 36px;
+  border: 1px solid var(--rule); border-radius: var(--radius-sm);
+  padding: 0; background: var(--bg); cursor: pointer;
+}
+
+.admin-checkbox {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-body); font-size: 0.92rem;
+  color: var(--ink);
+  text-transform: none; letter-spacing: 0;
+}
+.admin-checkbox-wrap { padding-top: 8px; }
+
+/* ============================================================
+   Repeated rows (links, socials)
+   ============================================================ */
+.admin-item {
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+  background: var(--bg);
+}
+.admin-item-compact { padding: 12px; }
+
+.admin-item-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-bottom: 8px;
+}
+.admin-item-ttl { font-weight: 500; font-size: 0.92rem; }
+.admin-item-controls { display: flex; gap: 4px; }
+
+/* ============================================================
+   Buttons
+   ============================================================ */
+.admin-card button,
+.admin-actions button {
+  font: inherit;
+  border-radius: var(--radius-sm); padding: 8px 14px;
+  cursor: pointer;
+  border: 1px solid var(--rule); background: var(--bg-elev);
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  transition: color 0.15s var(--ease),
+              border-color 0.15s var(--ease),
+              background 0.15s var(--ease);
+}
+.admin-card button:hover,
+.admin-actions button:hover {
+  color: var(--accent); border-color: var(--accent);
+}
+.admin-card button.admin-primary,
+.admin-actions button.admin-primary {
+  background: var(--accent); color: var(--bg-elev);
+  border-color: var(--accent);
+}
+.admin-card button.admin-primary:hover,
+.admin-actions button.admin-primary:hover {
+  background: var(--ink); border-color: var(--ink); color: var(--bg-elev);
+}
+.admin-card button.admin-secondary,
+.admin-actions button.admin-secondary {
+  background: transparent;
+}
+
+.admin-icon-btn {
+  padding: 6px 8px !important;
+  font-size: 0.78rem !important;
+}
+.admin-danger:hover {
+  color: var(--danger) !important;
+  border-color: var(--danger) !important;
+}
+
+.admin-actions {
+  display: flex; gap: 10px; flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+/* ============================================================
+   Avatar uploader
+   ============================================================ */
+.admin-avatar-row {
+  display: flex; gap: 16px; align-items: flex-start;
+}
+.admin-avatar-preview {
+  flex: 0 0 auto;
+  width: 72px; height: 72px;
+  border-radius: var(--radius-pill);
+  background: var(--bg); border: 1px solid var(--rule);
+  padding: 3px;
+  overflow: hidden;
+}
+.admin-avatar-preview img {
+  width: 100%; height: 100%;
+  border-radius: var(--radius-pill);
+  object-fit: cover; display: block;
+}
+.admin-avatar-controls {
+  flex: 1; display: flex; flex-direction: column; gap: 8px;
+  align-items: flex-start;
+}
+
+/* ============================================================
+   Generated config
+   ============================================================ */
+.admin-pre {
+  font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.5;
+  background: var(--ink); color: #ECE6D6;
+  padding: 16px; border-radius: 12px;
+  overflow: auto; max-height: 320px;
+  margin: 0;
+}
+[data-theme="dark"] .admin-pre {
+  background: #0A0A08;
+}
+
+.admin-hint {
+  font-size: 0.78rem; color: var(--ink-faint);
+  margin-top: 6px; line-height: 1.5;
+}
+.admin-hint-lead {
+  margin-top: -4px; margin-bottom: 14px;
+}
+
+/* ============================================================
+   Preset picker
+   ============================================================ */
+.admin-presets { padding-bottom: 22px; }
+
+.admin-preset-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.admin-card .admin-preset {
+  display: flex !important;
+  align-items: flex-start;
+  gap: 10px;
+  text-align: left;
+  padding: 12px !important;
+  font-size: 0.88rem !important;
+  line-height: 1.3;
+  background: var(--bg) !important;
+  border: 1px solid var(--rule) !important;
+  border-radius: var(--radius-sm);
+  color: var(--ink) !important;
+  cursor: pointer;
+  transition: border-color 0.15s var(--ease),
+              background 0.15s var(--ease);
+}
+.admin-card .admin-preset:hover {
+  border-color: var(--ink-faint) !important;
+  background: var(--bg-elev) !important;
+  color: var(--ink) !important;
+}
+.admin-card .admin-preset.is-active {
+  border-color: var(--accent) !important;
+  background: var(--accent-soft) !important;
+}
+
+.admin-preset-swatch {
+  flex: 0 0 auto;
+  width: 14px; height: 14px;
+  border-radius: var(--radius-pill);
+  margin-top: 3px;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+}
+.admin-preset-body {
+  display: flex; flex-direction: column; gap: 2px;
+  min-width: 0;
+}
+.admin-preset-name {
+  font-weight: 500; font-size: 0.92rem;
+  color: var(--ink);
+  letter-spacing: -0.005em;
+}
+.admin-preset-desc {
+  font-family: var(--font-mono); font-size: 0.7rem;
+  color: var(--ink-soft);
+  text-transform: uppercase; letter-spacing: 0.05em;
+  line-height: 1.4;
+}
+
+/* ============================================================
+   Modal (preset switch confirm)
+   ============================================================ */
+.admin-modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(20, 19, 15, 0.55);
+  display: grid; place-items: center;
+  z-index: 1000;
+  padding: 24px;
+  animation: rise 200ms var(--ease) both;
+}
+.admin-modal-backdrop[hidden] { display: none; }
+
+.admin-modal {
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-hover);
+  padding: 24px;
+  max-width: 440px; width: 100%;
+  animation: rise 280ms var(--ease) both;
+}
+
+/* ============================================================
+   Toast
+   ============================================================ */
+.admin-toast {
+  position: fixed; bottom: 28px; left: 50%;
+  transform: translateX(-50%);
+  background: var(--ink); color: var(--bg-elev);
+  padding: 10px 18px;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono); font-size: 0.85rem;
+  z-index: 100;
+}
+.admin-toast[hidden] { display: none; }
+
+/* ============================================================
+   Motion
+   ============================================================ */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ============================================================
+   Mobile tweaks
+   ============================================================ */
+@media (max-width: 600px) {
+  .admin-row { grid-template-columns: 1fr; }
+  .admin-wrap { padding: 28px 18px 60px; }
+  .admin-h1 { font-size: 1.6rem; }
+  .admin-view-live { display: none; }
+}
