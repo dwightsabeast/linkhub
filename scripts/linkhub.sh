@@ -288,7 +288,6 @@ INNER
 # script. We do it from outside so the password never appears in the
 # inner-script body that gets rendered into the LXC.
 if [[ $AUTH_MODE == basic ]]; then
-  HASH=$(printf '%s' "$BASIC_PW" | docker -ne 'fakeshim' 2>/dev/null || true)
   # We can't run linkhub-hash on the host (different libc target).
   # Instead, generate the hash *inside* the LXC after the binary is
   # in place. Pass the password via a tempfile only the inner script
