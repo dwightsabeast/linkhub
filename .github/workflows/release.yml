@@ -1,0 +1,86 @@
+# release.yml — build + publish a LinkHub release on tag push.
+#
+# Triggered by tags matching v*. Produces:
+#
+#   linkhub-linux-amd64.tar.gz
+#   linkhub-linux-amd64.tar.gz.sha256
+#
+# Uploaded to the GitHub Release page that the tag created. The
+# install script (scripts/linkhub.sh) fetches from
+# /releases/latest/download/linkhub-linux-amd64.tar.gz, which GitHub
+# resolves to whatever the most recent release is.
+#
+# v1 is amd64-only; arm64 is a one-line matrix addition when we want
+# it.
+
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  # Required to upload assets onto the auto-created release.
+  contents: write
+
+jobs:
+  build:
+    name: build linux/amd64
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+        with:
+          # Tags are needed so `git describe` produces the version
+          # stamp the Makefile injects via -ldflags.
+          fetch-depth: 0
+
+      - name: set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          # Module cache; speeds up subsequent runs but harmless on
+          # first run.
+          cache: true
+
+      - name: vet
+        run: make vet
+
+      - name: tarball
+        # `make tarball` builds both binaries with version stamping
+        # baked in, flattens the static layout, and writes the
+        # .sha256 sibling. Deterministic enough for "what's in
+        # this release" debugging.
+        run: make tarball
+
+      - name: show release contents
+        # Sanity print so the Action log is self-documenting when
+        # something goes sideways months from now.
+        run: |
+          ls -la dist/
+          echo
+          echo "tarball contents:"
+          tar tzf dist/linkhub-linux-amd64.tar.gz
+          echo
+          echo "checksum:"
+          cat dist/linkhub-linux-amd64.tar.gz.sha256
+
+      - name: publish release
+        # softprops/action-gh-release attaches files to the release
+        # the tag implicitly created. If the release doesn't exist
+        # yet it's created with the tag's name and an empty body —
+        # we'll edit notes by hand for v0.x.
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/linkhub-linux-amd64.tar.gz
+            dist/linkhub-linux-amd64.tar.gz.sha256
+          # Don't auto-generate notes; the human who tagged knows
+          # what shipped. Empty body is fine for a first release.
+          generate_release_notes: false
+          # Mark drafts only when explicitly requested. Tags push
+          # straight to "Latest".
+          draft: false
+          prerelease: false
