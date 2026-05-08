@@ -23,6 +23,8 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -31,10 +33,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/yourhandle/linkhub/internal/auth"
-	"github.com/yourhandle/linkhub/internal/config"
-	"github.com/yourhandle/linkhub/internal/server"
+	"github.com/dwightsabeast/linkhub/internal/auth"
+	"github.com/dwightsabeast/linkhub/internal/config"
+	"github.com/dwightsabeast/linkhub/internal/server"
 )
+
+// version is set at build time via -ldflags "-X main.version=…".
+// Defaults to "dev" so unstamped local builds still report something.
+var version = "dev"
 
 // Defaults match the values written into /etc/linkhub/linkhub.env by
 // the install script, so a fresh install Just Works with no overrides.
@@ -49,6 +55,25 @@ const (
 )
 
 func main() {
+	// --version short-circuits before we do any other work, so
+	// `linkhub --version` works even on a host with a broken env
+	// file. Use a small flag set rather than the package-default
+	// because we want to keep control over -h output too.
+	fs := flag.NewFlagSet("linkhub", flag.ExitOnError)
+	showVersion := fs.Bool("version", false, "print version and exit")
+	fs.Usage = func() {
+		fmt.Fprintf(os.Stderr, "usage: linkhub [--version]\n\n"+
+			"Configuration is via environment variables; see the package\n"+
+			"docs or /etc/linkhub/linkhub.env on a default install.\n")
+	}
+	if err := fs.Parse(os.Args[1:]); err != nil {
+		os.Exit(2)
+	}
+	if *showVersion {
+		fmt.Println(version)
+		return
+	}
+
 	// log.Lmsgprefix puts our prefix after the timestamp rather than
 	// before, which reads better in journalctl-style output:
 	//   2026/05/06 21:03:11 linkhub: listening on 0.0.0.0:8080
@@ -93,6 +118,7 @@ func main() {
 	}
 
 	authCfg.LogStartup()
+	log.Printf("version %s", version)
 	log.Printf("listening on %s (data=%s, static=%s)", listen, dataDir, staticDir)
 
 	httpSrv := &http.Server{
