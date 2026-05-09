@@ -235,6 +235,23 @@ BASIC_USER="${BASIC_USER:-}"
 # util-linux for agetty (console autologin).
 apk add --no-cache curl ca-certificates util-linux >/dev/null
 
+# ── Console autologin ───────────────────────────────────────────────
+# Alpine's default getty requires a login. Community-scripts style:
+# patch /etc/inittab via an OpenRC local.d script so the change
+# survives container restarts (Proxmox's Alpine.pm can overwrite
+# /etc/inittab on boot; running the sed at local.d time re-applies).
+passwd -d root >/dev/null 2>&1
+mkdir -p /etc/local.d
+cat > /etc/local.d/autologin.start <<'AUTOLOGIN'
+#!/bin/sh
+sed -i 's|^tty1::respawn:.*|tty1::respawn:/sbin/agetty --autologin root --noclear tty1 38400 linux|' /etc/inittab
+kill -HUP 1
+AUTOLOGIN
+chmod +x /etc/local.d/autologin.start
+touch /root/.hushlogin
+rc-update add local default >/dev/null 2>&1
+/etc/local.d/autologin.start
+
 # Layout:
 #   /opt/linkhub/{linkhub,linkhub-hash}     — binaries
 #   /opt/linkhub/static/                    — shipped chrome
@@ -274,23 +291,6 @@ fi
 
 chown -R linkhub:linkhub /var/lib/linkhub
 rm -rf /tmp/linkhub.tar.gz /tmp/static /tmp/config.default.json
-
-# ── Console autologin ───────────────────────────────────────────────
-# Alpine's default getty requires a login. Community-scripts style:
-# patch /etc/inittab via an OpenRC local.d script so the change
-# survives container restarts (Proxmox's Alpine.pm can overwrite
-# /etc/inittab on boot; running the sed at local.d time re-applies).
-passwd -d root >/dev/null 2>&1
-mkdir -p /etc/local.d
-cat > /etc/local.d/autologin.start <<'AUTOLOGIN'
-#!/bin/sh
-sed -i 's|^tty1::respawn:.*|tty1::respawn:/sbin/agetty --autologin root --noclear tty1 38400 linux|' /etc/inittab
-kill -HUP 1
-AUTOLOGIN
-chmod +x /etc/local.d/autologin.start
-touch /root/.hushlogin
-rc-update add local default >/dev/null 2>&1
-/etc/local.d/autologin.start
 
 # Build the env file. Mode-specific settings appended below.
 cat > /etc/linkhub/linkhub.env <<ENV
