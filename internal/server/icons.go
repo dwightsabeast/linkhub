@@ -1,5 +1,6 @@
 package server
 
+import "html/template"
 // iconPaths is a verbatim port of ICON_PATHS from
 // ui_kits/linkhub/Icon.jsx. The values are the inner SVG content for
 // each icon — the template wraps them in <svg width=… height=… …>.
@@ -75,10 +76,10 @@ var iconPaths = map[string]string{
 // iconSVG returns the inner SVG markup for a named icon, ready to be
 // dropped into a template. Returns an empty string for unknown names
 // so the template renders cleanly rather than erroring.
-func iconSVG(name string) string {
+func iconSVG(name string) template.HTML {
 	path, ok := iconPaths[name]
 	if !ok {
 		return ""
 	}
-	return path
+	return template.HTML(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">` + path + `</svg>`)
 }

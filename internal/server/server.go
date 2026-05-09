@@ -36,7 +36,7 @@ func New(opts Options) (*Server, error) {
 	tplPath := filepath.Join(opts.StaticDir, "index.html.tmpl")
 	tpl, err := template.New("index.html.tmpl").
 		Funcs(template.FuncMap{
-			"icon": iconSVG,
+			"iconSVG": iconSVG,
 		}).
 		ParseFiles(tplPath)
 	if err != nil {
