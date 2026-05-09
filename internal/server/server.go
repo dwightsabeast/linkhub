@@ -106,7 +106,7 @@ var fontFamilyParam = map[string]string{
 
 // googleFontsURL builds the stylesheet URL for the three configured
 // font roles. Called from the public page template.
-func googleFontsURL(cfg config.Config) template.URL {
+func googleFontsURL(data indexData) template.URL {
 	display := fontFamilyParam[cfg.Theme.FontDisplay]
 	body := fontFamilyParam[cfg.Theme.FontBody]
 	mono := fontFamilyParam[cfg.Theme.FontMono]
