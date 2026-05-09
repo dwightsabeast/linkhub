@@ -4,7 +4,7 @@
 # License: MIT | https://github.com/dwightsabeast/linkhub/raw/main/LICENSE
 # Source: https://github.com/dwightsabeast/linkhub
 
-source <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/misc/build.func)
+source <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/misc/build.func | sed 's|community-scripts/ProxmoxVE/main/install/|dwightsabeast/linkhub/main/install/|g')
 
 APP="LinkHub"
 var_tags="${var_tags:-links;homepage}"
