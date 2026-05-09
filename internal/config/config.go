@@ -312,6 +312,12 @@ func Validate(c *Config) error {
 	if c.Profile.AvatarShape < 1 || c.Profile.AvatarShape > 50 {
     return &ValidationError{Field: "profile.avatarShape", Message: "must be between 1 and 50"}
 	}
+	if !allowedFonts[c.Theme.FontBody] {
+    	return &ValidationError{Field: "theme.fontBody", Message: "unsupported font"}
+	}
+	if !allowedFonts[c.Theme.FontMono] {
+    	return &ValidationError{Field: "theme.fontMono", Message: "unsupported font"}
+	}
 	switch c.Theme.Mode {
 	case "auto", "light", "dark":
 	default:
