@@ -24,6 +24,18 @@
 {{- end}}
 <link rel="icon" href="{{if .Meta.Favicon}}{{.Meta.Favicon}}{{else}}/static/favicon.svg{{end}}" />
 <link rel="stylesheet" href="/static/styles.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="{{googleFontsURL .}}" />
+<style>
+:root {
+  --avatar-size: {{.Profile.AvatarSize}}px;
+  --avatar-shape: {{.Profile.AvatarShape}}%;
+  --font-display: "{{.Theme.FontDisplay}}", Georgia, serif;
+  --font-body: "{{.Theme.FontBody}}", -apple-system, sans-serif;
+  --font-mono: "{{.Theme.FontMono}}", ui-monospace, monospace;
+}
+</style>
 <style>:root { --avatar-size: {{.Profile.AvatarSize}}px; --avatar-shape: {{.Profile.AvatarShape}}%; }</style>
 {{- /* Open Graph / Twitter — minimal, no images. Avatar isn't a
        reliable OG card image (1:1 instead of 1.91:1) so we omit. */ -}}

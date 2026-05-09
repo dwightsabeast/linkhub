@@ -35,6 +35,9 @@ type Theme struct {
 	Mode       string `json:"mode"`       // "auto" | "light" | "dark"
 	Accent     string `json:"accent"`     // hex, light theme
 	AccentDark string `json:"accentDark"` // hex, dark theme
+	FontDisplay string `json:"fontDisplay,omitempty"` // e.g. "Fraunces"
+    FontBody    string `json:"fontBody,omitempty"`    // e.g. "Geist"
+    FontMono    string `json:"fontMono,omitempty"`    // e.g. "JetBrains Mono"
 }
 
 // Meta is HTML <head> content.
@@ -231,6 +234,15 @@ func applyDefaults(c *Config) {
 	if c.Theme.AccentDark == "" {
 		c.Theme.AccentDark = "#8FB3A4"
 	}
+	if c.Theme.FontDisplay == "" {
+    	c.Theme.FontDisplay = "Fraunces"
+	}
+	if c.Theme.FontBody == "" {
+    	c.Theme.FontBody = "Geist"
+	}
+	if c.Theme.FontMono == "" {
+    	c.Theme.FontMono = "JetBrains Mono"
+	}
 	if c.Profile.Avatar == "" {
 		c.Profile.Avatar = "/assets/avatar.svg"
 	}
@@ -305,7 +317,20 @@ func Validate(c *Config) error {
 	default:
 		return &ValidationError{Field: "theme.mode", Message: "must be auto, light, or dark"}
 	}
+	var allowedFonts = map[string]bool{
+    	"Fraunces": true, "Geist": true, "JetBrains Mono": true,
+    	"Inter": true, "Lora": true, "Playfair Display": true,
+    	"Space Grotesk": true, "IBM Plex Sans": true,
+    	"IBM Plex Mono": true, "Fira Code": true,
+    	"Source Serif 4": true, "DM Sans": true,
+    	"DM Serif Display": true, "Sora": true,
+    	// add more as desired
+	}
 
+	if !allowedFonts[c.Theme.FontDisplay] {
+    	return &ValidationError{Field: "theme.fontDisplay", Message: "unsupported font"}
+	}
+	// same for FontBody, FontMono
 	if len(c.Links) > maxLinks {
 		return &ValidationError{Field: "links", Message: fmt.Sprintf("too many links (max %d)", maxLinks)}
 	}

@@ -14,8 +14,6 @@
    trade.
    ============================================================ */
 
-@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,300..900,0..100&family=Geist:wght@300..700&family=JetBrains+Mono:wght@400;500&display=swap");
-
 :root {
   /* ---------- Color: warm paper ---------- */
   --bg:           #F4F0E8;

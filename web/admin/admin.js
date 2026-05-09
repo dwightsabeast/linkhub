@@ -79,11 +79,15 @@
       name: "Media company",
       description: "Show, newsletter, store",
       accent: "#3D5A4C",
+      fontDisplay: "Fraunces",
+      fontBody: "Geist",
+      fontMono: "JetBrains Mono",
       profile: {
         name: "Your Studio",
         tagline: "Independent media",
         bio: "Stories, essays, and a weekly newsletter from a one-person studio.",
         location: "On the internet",
+
       },
       links: [
         { label: "Latest episode", url: "https://example.com/latest", icon: "play",
@@ -105,6 +109,9 @@
       name: "Solo creator",
       description: "Personal hub, social-first",
       accent: "#A05A2C",
+      fontDisplay: "Fraunces",
+      fontBody: "Geist",
+      fontMono: "JetBrains Mono",
       profile: {
         name: "Your Name",
         tagline: "Writer · Photographer",
@@ -128,6 +135,9 @@
       name: "Small business",
       description: "Storefront, contact, hours",
       accent: "#5A3D7A",
+      fontDisplay: "Fraunces",
+      fontBody: "Geist",
+      fontMono: "JetBrains Mono"
       profile: {
         name: "Your Business",
         tagline: "Open weekdays",
@@ -152,6 +162,9 @@
       name: "Developer",
       description: "Code, writing, contact",
       accent: "#2C5A8A",
+      fontDisplay: "Fraunces",
+      fontBody: "Geist",
+      fontMono: "JetBrains Mono"
       profile: {
         name: "Your Name",
         tagline: "Software engineer",
@@ -175,7 +188,10 @@
       id: "minimal",
       name: "Minimal",
       description: "Bare scaffold to edit",
-      accent: "#3D5A4C",
+      accent: "#3D5A4C"
+      fontDisplay: "Fraunces",
+      fontBody: "Geist",
+      fontMono: "JetBrains Mono",
       profile: {
         name: "Your Name",
         tagline: "",
@@ -264,6 +280,9 @@
       accentColor:     document.getElementById("theme-accent-color"),
       accentDark:      document.getElementById("theme-accent-dark"),
       accentDarkColor: document.getElementById("theme-accent-dark-color"),
+      fontDisplay:     document.getElementById("font-display"),
+      fontBody:        document.getElementById("font-body"),
+      fontMono:        document.getElementById("font-mono"),
 
       // Repeated rows
       linkList:    document.getElementById("link-list"),
@@ -397,6 +416,9 @@
     state.cfg.theme.accent = preset.accent;
     state.cfg.links  = deepClone(preset.links);
     state.cfg.social = deepClone(preset.social);
+    state.cfg.theme.fontDisplay = preset.fontDisplay || "Fraunces";
+    state.cfg.theme.fontBody    = preset.fontBody    || "Geist";
+    state.cfg.theme.fontMono    = preset.fontMono    || "JetBrains Mono";
 
     renderAll();
     markActivePreset(preset.id);
@@ -497,6 +519,17 @@
     // the other, both write to state.theme.accent.
     bindAccentPair(dom.accent,     dom.accentColor,     "accent");
     bindAccentPair(dom.accentDark, dom.accentDarkColor, "accentDark");
+    // Font selects — simple change→write→redraw.
+    for (const [el, key] of [
+      [dom.fontDisplay, "fontDisplay"],
+      [dom.fontBody,    "fontBody"],
+      [dom.fontMono,    "fontMono"],
+    ]) {
+      el.addEventListener("change", () => {
+        state.cfg.theme[key] = el.value;
+        onFormChange();
+      });
+    }
   }
 
   function bindFlatField(el, path) {
@@ -779,6 +812,9 @@
     const ad = normalizeHex(state.cfg.theme.accentDark || "#8FB3A4");
     dom.accent.value = a;          dom.accentColor.value = a;
     dom.accentDark.value = ad;     dom.accentDarkColor.value = ad;
+    dom.fontDisplay.value = state.cfg.theme.fontDisplay || "Fraunces";
+    dom.fontBody.value    = state.cfg.theme.fontBody    || "Geist";
+    dom.fontMono.value    = state.cfg.theme.fontMono    || "JetBrains Mono";
   }
 
   function renderFooter() {
@@ -1013,6 +1049,9 @@
     if (!c.profile.avatar)   c.profile.avatar = "/assets/avatar.svg";
     if (!c.profile.avatarSize)  c.profile.avatarSize = 96;
     if (!c.profile.avatarShape) c.profile.avatarShape = 50;
+    if (!c.theme.fontDisplay) c.theme.fontDisplay = "Fraunces";
+    if (!c.theme.fontBody)    c.theme.fontBody    = "Geist";
+    if (!c.theme.fontMono)    c.theme.fontMono    = "JetBrains Mono";
     return c;
   }
 

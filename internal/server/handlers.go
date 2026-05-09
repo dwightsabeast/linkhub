@@ -33,6 +33,14 @@ type indexData struct {
 	IconPath template.JS
 }
 
+"googleFontsURL": func(cfg config.Config) template.URL {
+    // Build a fonts.googleapis.com URL from the three font names.
+    // Each font needs its weight/axis spec. You can map font name
+    // → query param string in a lookup table.
+    families := buildFontFamilies(cfg.Theme.FontDisplay, cfg.Theme.FontBody, cfg.Theme.FontMono)
+    return template.URL("https://fonts.googleapis.com/css2?" + families + "&display=swap")
+},
+
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	cfg := s.opts.Store.Get()
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

@@ -135,6 +135,43 @@
         Theme on the public page is fixed to light. The accent applies there;
         the dark accent is for any future use and the admin&rsquo;s own dark mode.
       </p>
+      <div class="admin-row" style="margin-top: 4px;">
+        <div>
+          <label class="admin-label" for="font-display">Display font</label>
+          <select id="font-display">
+            <option value="Fraunces">Fraunces (default)</option>
+            <option value="Playfair Display">Playfair Display</option>
+            <option value="DM Serif Display">DM Serif Display</option>
+            <option value="Lora">Lora</option>
+            <option value="Source Serif 4">Source Serif 4</option>
+          </select>
+        </div>
+        <div>
+          <label class="admin-label" for="font-body">Body font</label>
+          <select id="font-body">
+            <option value="Geist">Geist (default)</option>
+            <option value="Inter">Inter</option>
+            <option value="DM Sans">DM Sans</option>
+            <option value="Space Grotesk">Space Grotesk</option>
+            <option value="IBM Plex Sans">IBM Plex Sans</option>
+            <option value="Sora">Sora</option>
+          </select>
+        </div>
+      </div>
+      <div class="admin-row">
+        <div>
+          <label class="admin-label" for="font-mono">Mono font</label>
+          <select id="font-mono">
+            <option value="JetBrains Mono">JetBrains Mono (default)</option>
+            <option value="IBM Plex Mono">IBM Plex Mono</option>
+            <option value="Fira Code">Fira Code</option>
+          </select>
+        </div>
+        <div></div>
+      </div>
+      <p class="admin-hint">
+        Fonts apply to the public page only. The admin keeps its own type stack.
+      </p>
       <label class="admin-label">Favicon</label>
       <div class="admin-avatar-row">
         <div class="admin-avatar-preview" style="border-radius: 8px;">
@@ -212,7 +249,7 @@
     <h3 class="admin-h2" id="preset-modal-title">Replace your current copy?</h3>
     <p class="admin-hint">
       Loading <strong id="preset-modal-name">this preset</strong>
-      will overwrite the profile, links, social row, and accent. This can&rsquo;t be undone here
+      will overwrite the profile, links, social row, fonts, and accent. This can&rsquo;t be undone here
       &mdash; download your config first if you want to keep it.
     </p>
     <div class="admin-actions">
