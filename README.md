@@ -31,7 +31,7 @@ The mode is set via `AUTH_MODE` in `/etc/linkhub/linkhub.env`. Switching later m
 The fast path. Run on the Proxmox host shell as root:
 
 ```sh
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/dwightsabeast/linkhub/main/scripts/linkhub.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/dwightsabeast/linkhub/main/ct/linkhub.sh)"
 ```
 
 The script will prompt for a container ID, hostname, resources, and the auth mode. It creates an unprivileged Alpine LXC, downloads the latest release tarball, lays down the default config, registers an OpenRC service, and prints the bound URL when it finishes.
