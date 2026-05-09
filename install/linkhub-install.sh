@@ -95,6 +95,8 @@ RC
 chmod +x /etc/init.d/linkhub
 
 $STD rc-update add linkhub default
+touch /var/log/linkhub.log
+chown linkhub:linkhub /var/log/linkhub.log
 $STD rc-service linkhub start
 
 msg_ok "Created Service"
