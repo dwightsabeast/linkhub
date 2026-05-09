@@ -45,6 +45,9 @@ jobs:
           # first run.
           cache: true
 
+      - name: tidy
+        run: go mod tidy
+
       - name: vet
         run: make vet
 
