@@ -312,6 +312,18 @@ func Validate(c *Config) error {
 	if c.Profile.AvatarShape < 1 || c.Profile.AvatarShape > 50 {
     return &ValidationError{Field: "profile.avatarShape", Message: "must be between 1 and 50"}
 	}
+	var allowedFonts = map[string]bool{
+    	"Fraunces": true, "Geist": true, "JetBrains Mono": true,
+    	"Inter": true, "Lora": true, "Playfair Display": true,
+    	"Space Grotesk": true, "IBM Plex Sans": true,
+    	"IBM Plex Mono": true, "Fira Code": true,
+    	"Source Serif 4": true, "DM Sans": true,
+    	"DM Serif Display": true, "Sora": true,
+	}
+
+	if !allowedFonts[c.Theme.FontDisplay] {
+    	return &ValidationError{Field: "theme.fontDisplay", Message: "unsupported font"}
+	}
 	if !allowedFonts[c.Theme.FontBody] {
     	return &ValidationError{Field: "theme.fontBody", Message: "unsupported font"}
 	}
