@@ -249,6 +249,7 @@
       avatarUploadBtn: document.getElementById("avatar-upload-btn"),
       avatarResetBtn:  document.getElementById("avatar-reset-btn"),
       avatarSize:      document.getElementById("avatar-size"),
+      avatarShape:     document.getElementById("avatar-shape"),
 
       // Favicon
       faviconPreview:   document.getElementById("favicon-preview"),
@@ -479,6 +480,12 @@
     bindFlatField(dom.profileLocation, "profile.location");
     dom.avatarSize.addEventListener("change", () => {
       state.cfg.profile.avatarSize = Number(dom.avatarSize.value);
+      onFormChange();
+    });
+    dom.avatarShape.addEventListener("input", () => {
+      const val = Number(dom.avatarShape.value);
+      state.cfg.profile.avatarShape = val;
+      updateAvatarPreviewShape(val);
       onFormChange();
     });
     bindFlatField(dom.metaTitle,        "meta.title");
@@ -749,7 +756,9 @@
     dom.profileTagline.value  = state.cfg.profile.tagline  || "";
     dom.profileBio.value      = state.cfg.profile.bio      || "";
     dom.profileLocation.value = state.cfg.profile.location || "";
-    dom.avatarSize.value = String(state.cfg.profile.avatarSize || 96);
+    dom.avatarSize.value = String(state.cfg.profile.avatarSize || 96);\
+    dom.avatarShape.value = String(state.cfg.profile.avatarShape || 50);
+    updateAvatarPreviewShape(state.cfg.profile.avatarShape || 50);
   }
 
   function renderAvatar() {
@@ -896,6 +905,13 @@
     updateDirtyIndicator();
   }
 
+  function updateAvatarPreviewShape(shape) {
+    const r = shape + "%";
+    const wrap = dom.avatarPreview.closest(".admin-avatar-preview");
+    if (wrap) wrap.style.borderRadius = r;
+    dom.avatarPreview.style.borderRadius = r;
+  }
+
   function updateDirtyIndicator() {
     if (!state.saved) return;
     if (isDirty()) {
@@ -995,7 +1011,8 @@
     if (!c.theme.accent)     c.theme.accent = "#3D5A4C";
     if (!c.theme.accentDark) c.theme.accentDark = "#8FB3A4";
     if (!c.profile.avatar)   c.profile.avatar = "/assets/avatar.svg";
-    if (!c.profile.avatarSize) c.profile.avatarSize = 96;
+    if (!c.profile.avatarSize)  c.profile.avatarSize = 96;
+    if (!c.profile.avatarShape) c.profile.avatarShape = 50;
     return c;
   }
 

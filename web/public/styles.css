@@ -92,6 +92,7 @@ body::before {
 .avatar-wrap {
   width: var(--avatar-size, 96px);
   height: var(--avatar-size, 96px);
+  border-radius: var(--avatar-shape, 50%);
   background: var(--bg-elev); border: 1px solid var(--rule);
   padding: 4px; box-shadow: var(--shadow-card);
   overflow: hidden; margin-bottom: 22px;
@@ -99,7 +100,8 @@ body::before {
 }
 .avatar {
   width: 100%; height: 100%;
-  object-fit: cover; border-radius: var(--radius-pill);
+  object-fit: cover;
+  border-radius: var(--avatar-shape, 50%);
   display: block;
 }
 

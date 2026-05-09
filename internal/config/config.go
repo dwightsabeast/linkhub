@@ -26,6 +26,7 @@ type Profile struct {
 	Bio      string `json:"bio"`
 	Avatar   string `json:"avatar"`
 	AvatarSize int    `json:"avatarSize,omitempty"`
+	AvatarShape int    `json:"avatarShape,omitempty"` // 0 = square, 50 = circle
 	Location string `json:"location"`
 }
 
@@ -236,6 +237,9 @@ func applyDefaults(c *Config) {
 	if c.Profile.AvatarSize == 0 {
     	c.Profile.AvatarSize = 96
 	}
+	if c.Profile.AvatarShape == 0 {
+    	c.Profile.AvatarShape = 50
+	}
 	if c.Meta.Favicon == "" {
 		c.Meta.Favicon = "/static/favicon.svg"
 	}
@@ -292,6 +296,9 @@ func Validate(c *Config) error {
 	}
 	if c.Profile.AvatarSize < 48 || c.Profile.AvatarSize > 200 {
     return &ValidationError{Field: "profile.avatarSize", Message: "must be between 48 and 200"}
+	}
+	if c.Profile.AvatarShape < 1 || c.Profile.AvatarShape > 50 {
+    return &ValidationError{Field: "profile.avatarShape", Message: "must be between 1 and 50"}
 	}
 	switch c.Theme.Mode {
 	case "auto", "light", "dark":
