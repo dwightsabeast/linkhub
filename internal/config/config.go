@@ -335,20 +335,6 @@ func Validate(c *Config) error {
 	default:
 		return &ValidationError{Field: "theme.mode", Message: "must be auto, light, or dark"}
 	}
-	var allowedFonts = map[string]bool{
-    	"Fraunces": true, "Geist": true, "JetBrains Mono": true,
-    	"Inter": true, "Lora": true, "Playfair Display": true,
-    	"Space Grotesk": true, "IBM Plex Sans": true,
-    	"IBM Plex Mono": true, "Fira Code": true,
-    	"Source Serif 4": true, "DM Sans": true,
-    	"DM Serif Display": true, "Sora": true,
-    	// add more as desired
-	}
-
-	if !allowedFonts[c.Theme.FontDisplay] {
-    	return &ValidationError{Field: "theme.fontDisplay", Message: "unsupported font"}
-	}
-	// same for FontBody, FontMono
 	if len(c.Links) > maxLinks {
 		return &ValidationError{Field: "links", Message: fmt.Sprintf("too many links (max %d)", maxLinks)}
 	}
