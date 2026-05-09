@@ -19,10 +19,9 @@ import (
 // Limits applied to incoming requests. Avatar is the only meaningful
 // upload; everything else is a few KB of JSON.
 const (
-	maxConfigBytes = 32 << 10 // 32 KB
-	maxAvatarBytes = 2 << 20  // 2 MB
+	maxConfigBytes  = 32 << 10  // 32 KB
+	maxAvatarBytes  = 2 << 20   // 2 MB
 	maxFaviconBytes = 512 << 10 // 512 KB — favicons should be small
-
 )
 
 // indexData is the template payload. We pass cfg by value (the Store
@@ -32,14 +31,6 @@ type indexData struct {
 	Year     int
 	IconPath template.JS
 }
-
-"googleFontsURL": func(cfg config.Config) template.URL {
-    // Build a fonts.googleapis.com URL from the three font names.
-    // Each font needs its weight/axis spec. You can map font name
-    // → query param string in a lookup table.
-    families := buildFontFamilies(cfg.Theme.FontDisplay, cfg.Theme.FontBody, cfg.Theme.FontMono)
-    return template.URL("https://fonts.googleapis.com/css2?" + families + "&display=swap")
-},
 
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	cfg := s.opts.Store.Get()

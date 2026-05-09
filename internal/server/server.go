@@ -36,7 +36,8 @@ func New(opts Options) (*Server, error) {
 	tplPath := filepath.Join(opts.StaticDir, "index.html.tmpl")
 	tpl, err := template.New("index.html.tmpl").
 		Funcs(template.FuncMap{
-			"iconSVG": iconSVG,
+			"iconSVG":        iconSVG,
+			"googleFontsURL": googleFontsURL,
 		}).
 		ParseFiles(tplPath)
 	if err != nil {
@@ -79,6 +80,49 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("/api/", s.opts.Auth.Middleware(adminMux))
 
 	return logRequests(mux)
+}
+
+// ── Google Fonts URL builder ─────────────────────────────────────
+//
+// fontFamilyParam maps a font name to its Google Fonts query fragment.
+// Only fonts in this map are supported; the config validator ensures
+// nothing else arrives here.
+var fontFamilyParam = map[string]string{
+	"Fraunces":         "Fraunces:opsz,wght,SOFT@9..144,300..900,0..100",
+	"Playfair Display": "Playfair+Display:wght@400;500;600;700",
+	"DM Serif Display": "DM+Serif+Display",
+	"Lora":             "Lora:wght@400;500;600;700",
+	"Source Serif 4":   "Source+Serif+4:opsz,wght@8..60,300..700",
+	"Geist":            "Geist:wght@300..700",
+	"Inter":            "Inter:wght@300..700",
+	"DM Sans":          "DM+Sans:wght@300..700",
+	"Space Grotesk":    "Space+Grotesk:wght@300..700",
+	"IBM Plex Sans":    "IBM+Plex+Sans:wght@300;400;500;600;700",
+	"Sora":             "Sora:wght@300..700",
+	"JetBrains Mono":   "JetBrains+Mono:wght@400;500",
+	"IBM Plex Mono":    "IBM+Plex+Mono:wght@400;500",
+	"Fira Code":        "Fira+Code:wght@400;500",
+}
+
+// googleFontsURL builds the stylesheet URL for the three configured
+// font roles. Called from the public page template.
+func googleFontsURL(cfg config.Config) template.URL {
+	display := fontFamilyParam[cfg.Theme.FontDisplay]
+	body := fontFamilyParam[cfg.Theme.FontBody]
+	mono := fontFamilyParam[cfg.Theme.FontMono]
+
+	if display == "" {
+		display = fontFamilyParam["Fraunces"]
+	}
+	if body == "" {
+		body = fontFamilyParam["Geist"]
+	}
+	if mono == "" {
+		mono = fontFamilyParam["JetBrains Mono"]
+	}
+
+	return template.URL("https://fonts.googleapis.com/css2?family=" +
+		display + "&family=" + body + "&family=" + mono + "&display=swap")
 }
 
 // noDirListing wraps a file server to refuse directory index pages.
