@@ -178,7 +178,7 @@ body { min-height: 100vh; }
 .admin-card input[type="text"],
 .admin-card input[type="url"],
 .admin-card input[type="email"],
-.admin-card input:not([type="checkbox"]):not([type="color"]):not([type="file"]),
+.admin-card input:not([type="checkbox"]):not([type="color"]):not([type="file"]):not([type="range"]),
 .admin-card textarea,
 .admin-card select {
   width: 100%; padding: 10px 12px;
