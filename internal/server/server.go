@@ -107,9 +107,9 @@ var fontFamilyParam = map[string]string{
 // googleFontsURL builds the stylesheet URL for the three configured
 // font roles. Called from the public page template.
 func googleFontsURL(data indexData) template.URL {
-	display := fontFamilyParam[cfg.Theme.FontDisplay]
-	body := fontFamilyParam[cfg.Theme.FontBody]
-	mono := fontFamilyParam[cfg.Theme.FontMono]
+	display := fontFamilyParam[data.Theme.FontDisplay]
+	body := fontFamilyParam[data.Theme.FontBody]
+	mono := fontFamilyParam[data.Theme.FontMono]
 
 	if display == "" {
 		display = fontFamilyParam["Fraunces"]
