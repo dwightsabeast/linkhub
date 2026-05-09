@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/yourhandle/linkhub/internal/auth"
-	"github.com/yourhandle/linkhub/internal/config"
+	"github.com/dwightsabeast/linkhub/internal/auth"
+	"github.com/dwightsabeast/linkhub/internal/config"
 )
 
 // Options carries everything needed to construct a Server. Built in

@@ -1,4 +1,4 @@
-module github.com/yourhandle/linkhub
+module github.com/dwightsabeast/linkhub
 
 go 1.22
 

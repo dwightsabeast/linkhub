@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/yourhandle/linkhub/internal/config"
+	"github.com/dwightsabeast/linkhub/internal/config"
 )
 
 // Limits applied to incoming requests. Avatar is the only meaningful
@@ -233,33 +233,6 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(v); err != nil {
 		// Already committed status; just log.
-		log.Printf("encode response: %v", err)
+		log.Printf("writeJSON: %v", err)
 	}
-}
-
-// iconSVG is a template helper: takes an icon name, returns the inner
-// SVG path string verbatim. Names not in the set return the "link"
-// fallback to match Icon.jsx behavior.
-//
-// The template wraps the result in <svg>…</svg> so the helper only
-// needs to emit the inner contents. Returning template.HTML marks it
-// safe to interpolate without escaping.
-func iconSVG(name string) template.HTML {
-	if path, ok := iconPaths[name]; ok {
-		return template.HTML(path)
-	}
-	return template.HTML(iconPaths["link"])
-}
-
-// fileSize returns a human-readable size, used in error messages. We
-// keep it because it's tiny and it makes admin error UX nicer.
-func fileSize(n int64) string {
-	const k = 1024
-	if n < k {
-		return fmt.Sprintf("%d B", n)
-	}
-	if n < k*k {
-		return fmt.Sprintf("%.1f KB", float64(n)/k)
-	}
-	return fmt.Sprintf("%.1f MB", float64(n)/(k*k))
 }

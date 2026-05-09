@@ -3,7 +3,7 @@
 #
 # Usage (on the Proxmox host shell):
 #
-#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/yourhandle/linkhub/main/scripts/linkhub.sh)"
+#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/dwightsabeast/linkhub/main/scripts/linkhub.sh)"
 #
 # Creates an unprivileged Alpine LXC, installs the LinkHub binary,
 # default content, and a systemd-style service (we use OpenRC because
@@ -46,7 +46,7 @@ DEFAULT_BRIDGE="vmbr0"
 
 # Where to fetch the binary + assets. Override RELEASE_URL=... to
 # point at a fork.
-RELEASE_URL="${RELEASE_URL:-https://github.com/yourhandle/linkhub/releases/latest/download}"
+RELEASE_URL="${RELEASE_URL:-https://github.com/dwightsabeast/linkhub/releases/latest/download}"
 
 # ── Sanity checks ───────────────────────────────────────────────────
 [[ $EUID -eq 0 ]]      || die "Must run as root."
@@ -173,7 +173,7 @@ msg "Ensuring Alpine $ALPINE_RELEASE template is present"
 TEMPLATE_PATH="local:vztmpl/$ALPINE_TEMPLATE"
 if ! pveam list local 2>/dev/null | grep -q "$ALPINE_TEMPLATE"; then
   pveam update >/dev/null
-  # Resolve the latest Alpine 3.20 default template name from the
+  # Resolve the latest Alpine default template name from the
   # available list — the date suffix changes over time.
   RESOLVED=$(pveam available --section system 2>/dev/null \
     | awk -v r="$ALPINE_RELEASE" '$2 ~ ("^alpine-" r "-default") { print $2 }' \
@@ -231,8 +231,9 @@ RELEASE_URL="$RELEASE_URL"
 AUTH_MODE="$AUTH_MODE"
 BASIC_USER="${BASIC_USER:-}"
 
-# Alpine packages: curl for download, ca-certificates for HTTPS.
-apk add --no-cache curl ca-certificates >/dev/null
+# Alpine packages: curl for download, ca-certificates for HTTPS,
+# util-linux for agetty (console autologin).
+apk add --no-cache curl ca-certificates util-linux >/dev/null
 
 # Layout:
 #   /opt/linkhub/{linkhub,linkhub-hash}     — binaries
@@ -273,6 +274,23 @@ fi
 
 chown -R linkhub:linkhub /var/lib/linkhub
 rm -rf /tmp/linkhub.tar.gz /tmp/static /tmp/config.default.json
+
+# ── Console autologin ───────────────────────────────────────────────
+# Alpine's default getty requires a login. Community-scripts style:
+# patch /etc/inittab via an OpenRC local.d script so the change
+# survives container restarts (Proxmox's Alpine.pm can overwrite
+# /etc/inittab on boot; running the sed at local.d time re-applies).
+passwd -d root >/dev/null 2>&1
+mkdir -p /etc/local.d
+cat > /etc/local.d/autologin.start <<'AUTOLOGIN'
+#!/bin/sh
+sed -i 's|^tty1::respawn:.*|tty1::respawn:/sbin/agetty --autologin root --noclear tty1 38400 linux|' /etc/inittab
+kill -HUP 1
+AUTOLOGIN
+chmod +x /etc/local.d/autologin.start
+touch /root/.hushlogin
+rc-update add local default >/dev/null 2>&1
+/etc/local.d/autologin.start
 
 # Build the env file. Mode-specific settings appended below.
 cat > /etc/linkhub/linkhub.env <<ENV
