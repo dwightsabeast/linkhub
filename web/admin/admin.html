@@ -84,6 +84,15 @@
                  accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden />
           <button type="button" id="avatar-upload-btn">Upload new&hellip;</button>
           <button type="button" id="avatar-reset-btn" class="admin-secondary">Use default</button>
+          <label class="admin-label">Avatar size</label>
+          <select id="avatar-size" data-bind="profile.avatarSize" class="admin-input">
+           <option value="48">48px — Small</option>
+           <option value="64">64px — Compact</option>
+           <option value="96">96px — Default</option>
+           <option value="128">128px — Large</option>
+           <option value="160">160px — X-Large</option>
+           <option value="200">200px — Hero</option>  
+          </select>
           <p class="admin-hint">PNG, JPEG, WebP, or SVG. Max 2 MB. 400&times;400 looks best.</p>
         </div>
       </div>
