@@ -21,6 +21,8 @@ import (
 const (
 	maxConfigBytes = 32 << 10 // 32 KB
 	maxAvatarBytes = 2 << 20  // 2 MB
+	maxFaviconBytes = 512 << 10 // 512 KB — favicons should be small
+
 )
 
 // indexData is the template payload. We pass cfg by value (the Store
@@ -113,6 +115,15 @@ var allowedAvatarTypes = map[string]string{
 	"image/svg+xml": ".svg",
 }
 
+// allowedFaviconTypes mirrors allowedAvatarTypes but also permits
+// ICO, the traditional favicon format.
+var allowedFaviconTypes = map[string]string{
+	"image/png":                ".png",
+	"image/svg+xml":            ".svg",
+	"image/x-icon":             ".ico",
+	"image/vnd.microsoft.icon": ".ico",
+}
+
 func (s *Server) handleAvatar(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxAvatarBytes)
 
@@ -197,6 +208,103 @@ func (s *Server) handleAvatar(w http.ResponseWriter, r *http.Request) {
 		"status": "ok",
 		"avatar": avatarRef,
 	})
+}
+
+func (s *Server) handleFavicon(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxFaviconBytes)
+
+	ctype := r.Header.Get("Content-Type")
+	ext, ok := allowedFaviconTypes[ctype]
+	if !ok {
+		writeJSON(w, http.StatusUnsupportedMediaType, map[string]string{
+			"error": "Content-Type must be one of: image/png, image/svg+xml, image/x-icon",
+		})
+		return
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{
+			"error": "favicon too large (max 512 KB)",
+		})
+		return
+	}
+	if !sniffFaviconMatches(ctype, body) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{
+			"error": "file contents do not match the declared image type",
+		})
+		return
+	}
+
+	assetsDir := filepath.Join(s.opts.DataDir, "assets")
+	tmpFile, err := os.CreateTemp(assetsDir, ".favicon-*"+ext)
+	if err != nil {
+		log.Printf("favicon tempfile: %v", err)
+		http.Error(w, "could not save favicon", http.StatusInternalServerError)
+		return
+	}
+	tmpPath := tmpFile.Name()
+	defer os.Remove(tmpPath)
+	if _, err := tmpFile.Write(body); err != nil {
+		tmpFile.Close()
+		http.Error(w, "could not save favicon", http.StatusInternalServerError)
+		return
+	}
+	if err := tmpFile.Sync(); err != nil {
+		tmpFile.Close()
+		http.Error(w, "could not save favicon", http.StatusInternalServerError)
+		return
+	}
+	tmpFile.Close()
+	_ = os.Chmod(tmpPath, 0o644)
+
+	finalName := "favicon" + ext
+	finalPath := filepath.Join(assetsDir, finalName)
+	if err := os.Rename(tmpPath, finalPath); err != nil {
+		log.Printf("favicon rename: %v", err)
+		http.Error(w, "could not save favicon", http.StatusInternalServerError)
+		return
+	}
+
+	// Remove stale favicons in other formats.
+	for _, e := range []string{".png", ".svg", ".ico"} {
+		if e == ext {
+			continue
+		}
+		_ = os.Remove(filepath.Join(assetsDir, "favicon"+e))
+	}
+
+	faviconRef := "/assets/" + finalName + "?v=" + strconv.FormatInt(time.Now().Unix(), 10)
+	if err := s.opts.Store.SetFavicon(faviconRef); err != nil {
+		log.Printf("set favicon ref: %v", err)
+		http.Error(w, "saved but could not update config", http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{
+		"status":  "ok",
+		"favicon": faviconRef,
+	})
+}
+
+// sniffFaviconMatches validates magic bytes for favicon uploads.
+func sniffFaviconMatches(ctype string, b []byte) bool {
+	if len(b) < 4 {
+		return false
+	}
+	switch ctype {
+	case "image/png":
+		return len(b) >= 8 && bytes.HasPrefix(b, []byte("\x89PNG\r\n\x1a\n"))
+	case "image/svg+xml":
+		head := b
+		if len(head) > 1024 {
+			head = head[:1024]
+		}
+		return bytes.Contains(bytes.ToLower(head), []byte("<svg"))
+	case "image/x-icon", "image/vnd.microsoft.icon":
+		// ICO magic: 00 00 01 00 (icon) or 00 00 02 00 (cursor)
+		return b[0] == 0 && b[1] == 0 && (b[2] == 1 || b[2] == 2) && b[3] == 0
+	}
+	return false
 }
 
 // sniffMatches checks magic bytes against the declared Content-Type.

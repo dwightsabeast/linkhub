@@ -22,7 +22,7 @@
 {{- if .Meta.Description}}
 <meta name="description" content="{{.Meta.Description}}" />
 {{- end}}
-<link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+<link rel="icon" href="{{if .Meta.Favicon}}{{.Meta.Favicon}}{{else}}/static/favicon.svg{{end}}" />
 <link rel="stylesheet" href="/static/styles.css" />
 {{- /* Open Graph / Twitter — minimal, no images. Avatar isn't a
        reliable OG card image (1:1 instead of 1.91:1) so we omit. */ -}}

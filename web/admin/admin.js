@@ -56,6 +56,9 @@
   // Avatar upload — must mirror handleAvatar's allowedAvatarTypes.
   const AVATAR_ACCEPT = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
   const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+  // Favicon upload — must mirror handleFavicon's allowedFaviconTypes.
+  const FAVICON_ACCEPT = ["image/png", "image/svg+xml", "image/x-icon", "image/vnd.microsoft.icon"];
+  const FAVICON_MAX_BYTES = 512 * 1024;
 
   /* ── Voice presets ─────────────────────────────────────────────
      Each preset replaces profile / links / social / theme.accent
@@ -246,6 +249,12 @@
       avatarUploadBtn: document.getElementById("avatar-upload-btn"),
       avatarResetBtn:  document.getElementById("avatar-reset-btn"),
 
+      // Favicon
+      faviconPreview:   document.getElementById("favicon-preview"),
+      faviconFile:      document.getElementById("favicon-file"),
+      faviconUploadBtn: document.getElementById("favicon-upload-btn"),
+      faviconResetBtn:  document.getElementById("favicon-reset-btn"),
+
       // Meta + theme
       metaTitle:       document.getElementById("meta-title"),
       metaDescription: document.getElementById("meta-description"),
@@ -417,6 +426,11 @@
         setStatus("reload failed", "is-error", { sticky: true });
       });
     });
+
+    // Favicon
+    dom.faviconUploadBtn.addEventListener("click", () => dom.faviconFile.click());
+    dom.faviconFile.addEventListener("change", handleFaviconSelect);
+    dom.faviconResetBtn.addEventListener("click", handleFaviconReset);
 
     // Repeated-row add buttons
     dom.addLinkBtn.addEventListener("click", () => {
@@ -658,12 +672,66 @@
     onFormChange();
   }
 
+/* ── Favicon upload ────────────────────────────────────────── */
+
+  async function handleFaviconSelect() {
+    const file = dom.faviconFile.files && dom.faviconFile.files[0];
+    if (!file) return;
+
+    if (!FAVICON_ACCEPT.includes(file.type)) {
+      toast("favicon must be PNG, SVG, or ICO");
+      dom.faviconFile.value = "";
+      return;
+    }
+    if (file.size > FAVICON_MAX_BYTES) {
+      toast(`favicon too large (max 512 KB; this is ${formatBytes(file.size)})`);
+      dom.faviconFile.value = "";
+      return;
+    }
+
+    setStatus("uploading favicon…", "is-saving");
+    try {
+      const res = await fetch("/api/favicon", {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      if (!res.ok) {
+        let msg = `upload failed (${res.status})`;
+        try {
+          const body = await res.json();
+          if (body && body.error) msg = body.error;
+        } catch (_) { /* fall through */ }
+        throw new Error(msg);
+      }
+      const body = await res.json();
+      state.cfg.meta.favicon = body.favicon;
+      if (state.saved) state.saved.meta.favicon = body.favicon;
+      dom.faviconPreview.src = body.favicon;
+      renderConfigOutput();
+      setStatus("favicon uploaded", "is-saved");
+    } catch (err) {
+      console.error(err);
+      setStatus(err.message || "favicon upload failed", "is-error", { sticky: true });
+    } finally {
+      dom.faviconFile.value = "";
+    }
+  }
+
+  function handleFaviconReset() {
+    state.cfg.meta.favicon = "/static/favicon.svg";
+    dom.faviconPreview.src = state.cfg.meta.favicon;
+    renderConfigOutput();
+    onFormChange();
+  }
+
   /* ── Render: full + per-section ────────────────────────────── */
 
   function renderAll() {
     renderProfile();
     renderAvatar();
     renderMetaAndTheme();
+    renderFavicon();
     renderLinks();
     renderSocials();
     renderFooter();
@@ -681,6 +749,11 @@
   function renderAvatar() {
     const a = state.cfg.profile.avatar || "/static/assets/avatar.svg";
     dom.avatarPreview.src = a;
+  }
+
+  function renderFavicon() {
+    const f = state.cfg.meta.favicon || "/static/favicon.svg";
+    dom.faviconPreview.src = f;
   }
 
   function renderMetaAndTheme() {

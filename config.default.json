@@ -14,6 +14,7 @@
   "meta": {
     "title": "Your Studio",
     "description": "Stories, essays, and a weekly newsletter from a one-person studio."
+    "favicon": "/static/favicon.svg"
   },
   "links": [
     {

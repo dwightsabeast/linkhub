@@ -72,6 +72,7 @@ func (s *Server) Handler() http.Handler {
 	adminMux.HandleFunc("GET /api/config", s.handleGetConfig)
 	adminMux.HandleFunc("PUT /api/config", s.handleSetConfig)
 	adminMux.HandleFunc("POST /api/avatar", s.handleAvatar)
+	adminMux.HandleFunc("POST /api/favicon", s.handleFavicon)
 
 	mux.Handle("/admin", s.opts.Auth.Middleware(adminMux))
 	mux.Handle("/admin/", s.opts.Auth.Middleware(adminMux))

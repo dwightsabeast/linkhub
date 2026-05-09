@@ -39,6 +39,8 @@ type Theme struct {
 type Meta struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
+	Favicon     string `json:"favicon"`    // path to custom favicon; empty = bundled default
+
 }
 
 // Link is a primary link card.
@@ -171,6 +173,18 @@ func (s *Store) SetAvatar(avatar string) error {
 	return atomicWrite(s.path, &c)
 }
 
+// SetFavicon updates only the meta.favicon field. Same pattern as
+// SetAvatar: the favicon upload handler writes the file to disk,
+// then calls this to update the config reference.
+func (s *Store) SetFavicon(favicon string) error {
+	s.mu.Lock()
+	c := s.cfg
+	c.Meta.Favicon = favicon
+	s.cfg = c
+	s.mu.Unlock()
+	return atomicWrite(s.path, &c)
+}
+
 // atomicWrite writes c to a sibling .tmp file, fsyncs it, then
 // renames over path. Within a single filesystem this is atomic per
 // POSIX; readers will see either the old file or the new one.
@@ -217,6 +231,9 @@ func applyDefaults(c *Config) {
 	}
 	if c.Profile.Avatar == "" {
 		c.Profile.Avatar = "/assets/avatar.svg"
+	}
+	if c.Meta.Favicon == "" {
+		c.Meta.Favicon = "/static/favicon.svg"
 	}
 	if c.Links == nil {
 		c.Links = []Link{}
