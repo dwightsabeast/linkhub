@@ -120,6 +120,20 @@
         Theme on the public page is fixed to light. The accent applies there;
         the dark accent is for any future use and the admin&rsquo;s own dark mode.
       </p>
+      <label class="admin-label">Favicon</label>
+      <div class="admin-avatar-row">
+        <div class="admin-avatar-preview" style="border-radius: 8px;">
+          <img id="favicon-preview" src="/static/favicon.svg" alt=""
+               style="border-radius: 6px;" />
+        </div>
+        <div class="admin-avatar-controls">
+          <input id="favicon-file" type="file"
+                 accept="image/png,image/svg+xml,image/x-icon" hidden />
+          <button type="button" id="favicon-upload-btn">Upload new&hellip;</button>
+          <button type="button" id="favicon-reset-btn" class="admin-secondary">Use default</button>
+          <p class="admin-hint">PNG, SVG, or ICO. Max 512 KB. 64&times;64 or larger.</p>
+        </div>
+      </div>
     </section>
 
     <!-- ============== Primary links =============== -->
