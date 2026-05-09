@@ -25,17 +25,8 @@ type Profile struct {
 	Tagline  string `json:"tagline"`
 	Bio      string `json:"bio"`
 	Avatar   string `json:"avatar"`
+	AvatarSize int    `json:"avatarSize,omitempty"`
 	Location string `json:"location"`
-}
-
-// Adjustable avatar size
-type Profile struct {
-	Name       string `json:"name"`
-	Tagline    string `json:"tagline"`
-	Bio        string `json:"bio"`
-	Avatar     string `json:"avatar"`
-	AvatarSize int    `json:"avatarSize,omitempty"` // px; 0 = default (96)
-	Location   string `json:"location"`
 }
 
 // Theme controls accent + light/dark behavior.
