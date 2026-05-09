@@ -28,6 +28,16 @@ type Profile struct {
 	Location string `json:"location"`
 }
 
+// Adjustable avatar size
+type Profile struct {
+	Name       string `json:"name"`
+	Tagline    string `json:"tagline"`
+	Bio        string `json:"bio"`
+	Avatar     string `json:"avatar"`
+	AvatarSize int    `json:"avatarSize,omitempty"` // px; 0 = default (96)
+	Location   string `json:"location"`
+}
+
 // Theme controls accent + light/dark behavior.
 type Theme struct {
 	Mode       string `json:"mode"`       // "auto" | "light" | "dark"
@@ -232,6 +242,9 @@ func applyDefaults(c *Config) {
 	if c.Profile.Avatar == "" {
 		c.Profile.Avatar = "/assets/avatar.svg"
 	}
+	if c.Profile.AvatarSize == 0 {
+    	c.Profile.AvatarSize = 96
+	}
 	if c.Meta.Favicon == "" {
 		c.Meta.Favicon = "/static/favicon.svg"
 	}
@@ -285,6 +298,9 @@ func Validate(c *Config) error {
 	}
 	if err := checkHex("theme.accentDark", c.Theme.AccentDark); err != nil {
 		return err
+	}
+	if c.Profile.AvatarSize < 48 || c.Profile.AvatarSize > 200 {
+    return &ValidationError{Field: "profile.avatarSize", Message: "must be between 48 and 200"}
 	}
 	switch c.Theme.Mode {
 	case "auto", "light", "dark":

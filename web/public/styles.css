@@ -90,7 +90,8 @@ body::before {
 .profile { text-align: center; display: flex; flex-direction: column; align-items: center; }
 
 .avatar-wrap {
-  width: 96px; height: 96px; border-radius: var(--radius-pill);
+  width: var(--avatar-size, 96px);
+  height: var(--avatar-size, 96px);
   background: var(--bg-elev); border: 1px solid var(--rule);
   padding: 4px; box-shadow: var(--shadow-card);
   overflow: hidden; margin-bottom: 22px;

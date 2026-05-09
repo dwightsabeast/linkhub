@@ -24,6 +24,7 @@
 {{- end}}
 <link rel="icon" href="{{if .Meta.Favicon}}{{.Meta.Favicon}}{{else}}/static/favicon.svg{{end}}" />
 <link rel="stylesheet" href="/static/styles.css" />
+<style>:root { --avatar-size: {{.Profile.AvatarSize}}px; }</style>
 {{- /* Open Graph / Twitter — minimal, no images. Avatar isn't a
        reliable OG card image (1:1 instead of 1.91:1) so we omit. */ -}}
 <meta property="og:title" content="{{.Meta.Title}}" />
