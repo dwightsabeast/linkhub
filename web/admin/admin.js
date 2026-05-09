@@ -756,7 +756,7 @@
     dom.profileTagline.value  = state.cfg.profile.tagline  || "";
     dom.profileBio.value      = state.cfg.profile.bio      || "";
     dom.profileLocation.value = state.cfg.profile.location || "";
-    dom.avatarSize.value = String(state.cfg.profile.avatarSize || 96);\
+    dom.avatarSize.value = String(state.cfg.profile.avatarSize || 96);
     dom.avatarShape.value = String(state.cfg.profile.avatarShape || 50);
     updateAvatarPreviewShape(state.cfg.profile.avatarShape || 50);
   }
