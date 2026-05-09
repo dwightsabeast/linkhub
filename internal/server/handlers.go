@@ -26,9 +26,9 @@ const (
 // indexData is the template payload. We pass cfg by value (the Store
 // already deep-copies on Get) plus a few derived fields.
 type indexData struct {
-	Cfg      config.Config
+	config.Config
 	Year     int
-	IconPath template.JS // not used today; reserved for inline-SVG path
+	IconPath template.JS
 }
 
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
@@ -41,8 +41,8 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	// written body on the wire.
 	var buf bytes.Buffer
 	if err := s.tpl.Execute(&buf, indexData{
-		Cfg:  cfg,
-		Year: time.Now().Year(),
+		Config: cfg,
+		Year:   time.Now().Year(),
 	}); err != nil {
 		log.Printf("index render: %v", err)
 		http.Error(w, "render error", http.StatusInternalServerError)
