@@ -188,7 +188,7 @@
       id: "minimal",
       name: "Minimal",
       description: "Bare scaffold to edit",
-      accent: "#3D5A4C"
+      accent: "#3D5A4C",
       fontDisplay: "Fraunces",
       fontBody: "Geist",
       fontMono: "JetBrains Mono",
