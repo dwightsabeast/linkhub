@@ -137,7 +137,7 @@
       accent: "#5A3D7A",
       fontDisplay: "Fraunces",
       fontBody: "Geist",
-      fontMono: "JetBrains Mono"
+      fontMono: "JetBrains Mono",
       profile: {
         name: "Your Business",
         tagline: "Open weekdays",
@@ -164,7 +164,7 @@
       accent: "#2C5A8A",
       fontDisplay: "Fraunces",
       fontBody: "Geist",
-      fontMono: "JetBrains Mono"
+      fontMono: "JetBrains Mono",
       profile: {
         name: "Your Name",
         tagline: "Software engineer",
