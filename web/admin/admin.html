@@ -113,7 +113,14 @@
 
       <label class="admin-label" for="meta-description">Meta description</label>
       <textarea id="meta-description" data-bind="meta.description"></textarea>
-
+      <label class="admin-label" for="meta-headsnippet">Custom &lt;head&gt; snippet</label>
+      <textarea id="meta-headsnippet" data-bind="meta.headSnippet"
+            rows="4" spellcheck="false"
+            style="font-family: var(--font-mono); font-size: 0.82rem;"></textarea>
+      <p class="admin-hint">
+        Paste analytics or tracking code here (Matomo, Plausible, Umami, etc.).
+        Injected before &lt;/head&gt; on the public page. Max 2 000 characters.
+      </p>
       <div class="admin-row">
         <div>
           <label class="admin-label" for="theme-accent">Accent (light)</label>

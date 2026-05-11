@@ -45,6 +45,7 @@ type Meta struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
 	Favicon     string `json:"favicon"`    // path to custom favicon; empty = bundled default
+	HeadSnippet string `json:"headSnippet,omitempty"` // custom HTML injected before </head>
 
 }
 
@@ -87,6 +88,7 @@ const (
 	maxLocation        = 60
 	maxLinkLabel       = 36
 	maxLinkDescription = 60
+	maxHeadSnippet	   = 2000
 	maxFooter          = 80
 	maxLinks           = 12 // soft cap; visual rhythm degrades past ~8
 	maxSocial          = 12
@@ -337,6 +339,9 @@ func Validate(c *Config) error {
 	}
 	if len(c.Links) > maxLinks {
 		return &ValidationError{Field: "links", Message: fmt.Sprintf("too many links (max %d)", maxLinks)}
+	}
+	if err := checkLen("meta.headSnippet", c.Meta.HeadSnippet, 0, maxHeadSnippet); err != nil {
+    	return err
 	}
 	featured := 0
 	for i, l := range c.Links {

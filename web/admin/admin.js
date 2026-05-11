@@ -276,6 +276,7 @@
       // Meta + theme
       metaTitle:       document.getElementById("meta-title"),
       metaDescription: document.getElementById("meta-description"),
+      metaHeadSnippet: document.getElementById("meta-headsnippet"),
       accent:          document.getElementById("theme-accent"),
       accentColor:     document.getElementById("theme-accent-color"),
       accentDark:      document.getElementById("theme-accent-dark"),
@@ -512,6 +513,7 @@
     });
     bindFlatField(dom.metaTitle,        "meta.title");
     bindFlatField(dom.metaDescription,  "meta.description");
+    bindFlatField(dom.metaHeadSnippet,  "meta.headSnippet");
     bindFlatField(dom.footerText,       "footer.text");
     bindFlatField(dom.footerShowYear,   "footer.showYear");
 
@@ -631,6 +633,7 @@
       "profile.location":  dom.profileLocation,
       "meta.title":        dom.metaTitle,
       "meta.description":  dom.metaDescription,
+      "meta.headSnippet": dom.metaHeadSnippet,
       "footer.text":       dom.footerText,
       "theme.accent":      dom.accent,
       "theme.accentDark":  dom.accentDark,
@@ -807,6 +810,7 @@
   function renderMetaAndTheme() {
     dom.metaTitle.value       = state.cfg.meta.title       || "";
     dom.metaDescription.value = state.cfg.meta.description || "";
+    dom.metaHeadSnippet.value = state.cfg.meta.headSnippet || ""; 
 
     const a = normalizeHex(state.cfg.theme.accent || "#3D5A4C");
     const ad = normalizeHex(state.cfg.theme.accentDark || "#8FB3A4");
