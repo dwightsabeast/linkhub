@@ -30,7 +30,7 @@ type indexData struct {
 	config.Config
 	Year     int
 	IconPath template.JS
-	HeadSnippet template.HTML
+	RawHeadSnippet template.HTML
 }
 
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
@@ -44,7 +44,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	data := indexData{
     	Config:      cfg,
     	Year:        time.Now().Year(),
-    	HeadSnippet: template.HTML(cfg.Meta.HeadSnippet),
+    	RawHeadSnippet: template.HTML(cfg.Meta.HeadSnippet),
 	}
 	var buf bytes.Buffer
 	if err := s.tpl.Execute(&buf, data); err != nil {
