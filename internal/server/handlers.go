@@ -28,9 +28,10 @@ const (
 // already deep-copies on Get) plus a few derived fields.
 type indexData struct {
 	config.Config
-	Year     int
-	IconPath template.JS
-	RawHeadSnippet template.HTML
+	Year              int
+	IconPath          template.JS
+	RawHeadSnippet    template.HTML
+	BannerDurationSec int
 }
 
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
@@ -42,9 +43,10 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	// Buffer the render so a template error doesn't leave a half-
 	// written body on the wire.
 	data := indexData{
-    	Config:      cfg,
-    	Year:        time.Now().Year(),
-    	RawHeadSnippet: template.HTML(cfg.Meta.HeadSnippet),
+		Config:            cfg,
+		Year:              time.Now().Year(),
+		RawHeadSnippet:    template.HTML(cfg.Meta.HeadSnippet),
+		BannerDurationSec: bannerDurationSec(cfg.Banner.Speed),
 	}
 	var buf bytes.Buffer
 	if err := s.tpl.Execute(&buf, data); err != nil {
@@ -307,6 +309,19 @@ func sniffFaviconMatches(ctype string, b []byte) bool {
 		return b[0] == 0 && b[1] == 0 && (b[2] == 1 || b[2] == 2) && b[3] == 0
 	}
 	return false
+}
+
+// bannerDurationSec maps the 1–10 speed slider to a CSS marquee
+// duration in seconds: 1 (slow) → 40s, 10 (fast) → 4s. The public
+// template exposes this as the --banner-duration custom property.
+func bannerDurationSec(speed int) int {
+	if speed < 1 {
+		speed = 1
+	}
+	if speed > 10 {
+		speed = 10
+	}
+	return 44 - speed*4
 }
 
 // sniffMatches checks magic bytes against the declared Content-Type.

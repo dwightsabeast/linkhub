@@ -34,6 +34,9 @@
   --font-display: "{{.Theme.FontDisplay}}", Georgia, serif;
   --font-body: "{{.Theme.FontBody}}", -apple-system, sans-serif;
   --font-mono: "{{.Theme.FontMono}}", ui-monospace, monospace;
+  --banner-bg: {{.Banner.Background}};
+  --banner-fg: {{.Banner.TextColor}};
+  --banner-duration: {{.BannerDurationSec}}s;
 }
 </style>
 <style>:root { --avatar-size: {{.Profile.AvatarSize}}px; --avatar-shape: {{.Profile.AvatarShape}}%; }</style>
@@ -49,6 +52,18 @@
 {{- end}}
 </head>
 <body>
+{{- if .Banner.Enabled}}
+<div class="banner{{if .Banner.Scroll}} banner-is-scrolling{{end}}" role="status" aria-live="polite">
+  {{- if .Banner.Scroll}}
+  <div class="banner-track">
+    <span class="banner-text">{{.Banner.Text}}</span>
+    <span class="banner-text" aria-hidden="true">{{.Banner.Text}}</span>
+  </div>
+  {{- else}}
+  <span class="banner-text">{{.Banner.Text}}</span>
+  {{- end}}
+</div>
+{{- end}}
 <main class="page">
   <header class="profile">
     <div class="avatar-wrap">

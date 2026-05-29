@@ -197,6 +197,49 @@
       </div>
     </section>
 
+    <!-- ============== Announcement banner =============== -->
+    <section class="admin-card admin-full">
+      <h2 class="admin-h2">Announcement banner</h2>
+      <label class="admin-checkbox">
+        <input id="banner-enabled" type="checkbox" data-bind="banner.enabled" />
+        <span>Show a banner at the top of the public page</span>
+      </label>
+
+      <label class="admin-label" for="banner-text">Banner text</label>
+      <input id="banner-text" type="text" data-bind="banner.text" maxlength="120"
+             placeholder="e.g. Actively shooting today — find your shots tonight!" />
+
+      <div class="admin-row">
+        <div>
+          <label class="admin-label" for="banner-background">Background</label>
+          <div class="admin-pair">
+            <input id="banner-background-color" type="color" data-bind="banner.background" />
+            <input id="banner-background" type="text" data-bind="banner.background" />
+          </div>
+        </div>
+        <div>
+          <label class="admin-label" for="banner-textcolor">Text color</label>
+          <div class="admin-pair">
+            <input id="banner-textcolor-color" type="color" data-bind="banner.textColor" />
+            <input id="banner-textcolor" type="text" data-bind="banner.textColor" />
+          </div>
+        </div>
+      </div>
+
+      <label class="admin-checkbox" style="margin-top: 12px;">
+        <input id="banner-scroll" type="checkbox" data-bind="banner.scroll" />
+        <span>Scroll the text across the banner</span>
+      </label>
+
+      <label class="admin-label" for="banner-speed">Scroll speed</label>
+      <div class="admin-avatar-shape-row">
+        <span class="admin-shape-label">Slow</span>
+        <input id="banner-speed" type="range" min="1" max="10" step="1" />
+        <span class="admin-shape-label">Fast</span>
+      </div>
+      <p class="admin-hint">Speed only applies when scrolling is on. Leave scrolling off for static text.</p>
+    </section>
+
     <!-- ============== Primary links =============== -->
     <section class="admin-card admin-full">
       <h2 class="admin-h2">Primary links</h2>
