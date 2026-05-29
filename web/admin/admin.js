@@ -305,17 +305,6 @@
       footerShowYear: document.getElementById("footer-show-year"),
       footerText:     document.getElementById("footer-text"),
 
-      // Banner
-      bindFlatField(dom.bannerEnabled, "banner.enabled");
-      bindFlatField(dom.bannerText,    "banner.text");
-      bindFlatField(dom.bannerScroll,  "banner.scroll");
-      bindBannerColorPair(dom.bannerBg,        dom.bannerBgColor,        "background");
-      bindBannerColorPair(dom.bannerTextColor, dom.bannerTextColorColor, "textColor");
-      dom.bannerSpeed.addEventListener("input", () => {
-        state.cfg.banner.speed = Number(dom.bannerSpeed.value);
-        onFormChange();
-      });
-
       // Generated output + actions
       configOutput:   document.getElementById("config-output"),
       saveBtn:        document.getElementById("save-btn"),
@@ -537,6 +526,17 @@
     bindFlatField(dom.metaHeadSnippet,  "meta.headSnippet");
     bindFlatField(dom.footerText,       "footer.text");
     bindFlatField(dom.footerShowYear,   "footer.showYear");
+
+    // Banner
+    bindFlatField(dom.bannerEnabled, "banner.enabled");
+    bindFlatField(dom.bannerText,    "banner.text");
+    bindFlatField(dom.bannerScroll,  "banner.scroll");
+    bindBannerColorPair(dom.bannerBg,        dom.bannerBgColor,        "background");
+    bindBannerColorPair(dom.bannerTextColor, dom.bannerTextColorColor, "textColor");
+    dom.bannerSpeed.addEventListener("input", () => {
+      state.cfg.banner.speed = Number(dom.bannerSpeed.value);
+      onFormChange();
+    });
 
     // Accent: text + color inputs are mirrored. Editing one updates
     // the other, both write to state.theme.accent.
