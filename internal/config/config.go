@@ -70,6 +70,18 @@ type Footer struct {
 	Text     string `json:"text"`
 }
 
+// Banner is an optional announcement bar rendered at the very top of
+// the public page. Used for time-sensitive notices ("shooting today")
+// that don't warrant editing the profile copy.
+type Banner struct {
+	Enabled    bool   `json:"enabled"`
+	Text       string `json:"text"`
+	Background string `json:"background"`      // hex, bar background
+	TextColor  string `json:"textColor"`       // hex, bar text
+	Scroll     bool   `json:"scroll"`          // marquee on/off
+	Speed      int    `json:"speed,omitempty"` // 1 (slow) … 10 (fast)
+}
+
 // Config is the full document at /var/lib/linkhub/config.json.
 type Config struct {
 	Profile Profile  `json:"profile"`
@@ -78,6 +90,7 @@ type Config struct {
 	Links   []Link   `json:"links"`
 	Social  []Social `json:"social"`
 	Footer  Footer   `json:"footer"`
+	Banner  Banner   `json:"banner"`
 }
 
 // Length budgets from README → CONTENT FUNDAMENTALS. Enforced on save.
@@ -94,6 +107,7 @@ const (
 	maxSocial          = 12
 	maxMetaTitle       = 100
 	maxMetaDescription = 200
+	maxBannerText      = 120
 )
 
 // Store is the runtime cache of Config plus its on-disk path.
@@ -257,6 +271,15 @@ func applyDefaults(c *Config) {
 	if c.Meta.Favicon == "" {
 		c.Meta.Favicon = "/static/favicon.svg"
 	}
+	if c.Banner.Background == "" {
+		c.Banner.Background = "#3D5A4C"
+	}
+	if c.Banner.TextColor == "" {
+		c.Banner.TextColor = "#FFFFFF"
+	}
+	if c.Banner.Speed == 0 {
+		c.Banner.Speed = 6
+	}
 	if c.Links == nil {
 		c.Links = []Link{}
 	}
@@ -343,6 +366,26 @@ func Validate(c *Config) error {
 	if err := checkLen("meta.headSnippet", c.Meta.HeadSnippet, 0, maxHeadSnippet); err != nil {
     	return err
 	}
+
+	// Banner. Colors and speed are always validated because
+	// applyDefaults guarantees they're populated; text is only
+	// required when the banner is actually turned on.
+	if err := checkLen("banner.text", c.Banner.Text, 0, maxBannerText); err != nil {
+		return err
+	}
+	if c.Banner.Enabled && len(strings.TrimSpace(c.Banner.Text)) == 0 {
+		return &ValidationError{Field: "banner.text", Message: "is required when the banner is enabled"}
+	}
+	if err := checkHex("banner.background", c.Banner.Background); err != nil {
+		return err
+	}
+	if err := checkHex("banner.textColor", c.Banner.TextColor); err != nil {
+		return err
+	}
+	if c.Banner.Speed < 1 || c.Banner.Speed > 10 {
+		return &ValidationError{Field: "banner.speed", Message: "must be between 1 and 10"}
+	}
+	
 	featured := 0
 	for i, l := range c.Links {
 		base := fmt.Sprintf("links[%d]", i)

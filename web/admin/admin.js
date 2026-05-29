@@ -285,6 +285,16 @@
       fontBody:        document.getElementById("font-body"),
       fontMono:        document.getElementById("font-mono"),
 
+      // Banner
+      bannerEnabled:        document.getElementById("banner-enabled"),
+      bannerText:           document.getElementById("banner-text"),
+      bannerBg:             document.getElementById("banner-background"),
+      bannerBgColor:        document.getElementById("banner-background-color"),
+      bannerTextColor:      document.getElementById("banner-textcolor"),
+      bannerTextColorColor: document.getElementById("banner-textcolor-color"),
+      bannerScroll:         document.getElementById("banner-scroll"),
+      bannerSpeed:          document.getElementById("banner-speed"),
+
       // Repeated rows
       linkList:    document.getElementById("link-list"),
       socialList:  document.getElementById("social-list"),
@@ -294,6 +304,17 @@
       // Footer
       footerShowYear: document.getElementById("footer-show-year"),
       footerText:     document.getElementById("footer-text"),
+
+      // Banner
+      bindFlatField(dom.bannerEnabled, "banner.enabled");
+      bindFlatField(dom.bannerText,    "banner.text");
+      bindFlatField(dom.bannerScroll,  "banner.scroll");
+      bindBannerColorPair(dom.bannerBg,        dom.bannerBgColor,        "background");
+      bindBannerColorPair(dom.bannerTextColor, dom.bannerTextColorColor, "textColor");
+      dom.bannerSpeed.addEventListener("input", () => {
+        state.cfg.banner.speed = Number(dom.bannerSpeed.value);
+        onFormChange();
+      });
 
       // Generated output + actions
       configOutput:   document.getElementById("config-output"),
@@ -564,6 +585,18 @@
     colorEl.addEventListener("input", () => update(colorEl.value));
   }
 
+  function bindBannerColorPair(textEl, colorEl, key) {
+    const update = (val) => {
+      const norm = normalizeHex(val);
+      state.cfg.banner[key] = norm;
+      if (textEl.value !== norm) textEl.value = norm;
+      if (colorEl.value !== norm) colorEl.value = norm;
+      onFormChange();
+    };
+    textEl.addEventListener("input", () => update(textEl.value));
+    colorEl.addEventListener("input", () => update(colorEl.value));
+  }
+
   function normalizeHex(v) {
     if (!v) return "#000000";
     let s = v.trim().toLowerCase();
@@ -637,6 +670,9 @@
       "footer.text":       dom.footerText,
       "theme.accent":      dom.accent,
       "theme.accentDark":  dom.accentDark,
+      "banner.text":       dom.bannerText,
+      "banner.background": dom.bannerBg,
+      "banner.textColor":  dom.bannerTextColor,
     };
     if (flat[path]) {
       flat[path].focus();
@@ -783,6 +819,7 @@
     renderLinks();
     renderSocials();
     renderFooter();
+    renderBanner();
     renderConfigOutput();
     updateDirtyIndicator();
   }
@@ -824,6 +861,17 @@
   function renderFooter() {
     dom.footerShowYear.checked = !!state.cfg.footer.showYear;
     dom.footerText.value = state.cfg.footer.text || "";
+  }
+
+  function renderBanner() {
+    dom.bannerEnabled.checked = !!state.cfg.banner.enabled;
+    dom.bannerText.value = state.cfg.banner.text || "";
+    const bg = normalizeHex(state.cfg.banner.background || "#3D5A4C");
+    const fg = normalizeHex(state.cfg.banner.textColor  || "#FFFFFF");
+    dom.bannerBg.value = bg;          dom.bannerBgColor.value = bg;
+    dom.bannerTextColor.value = fg;   dom.bannerTextColorColor.value = fg;
+    dom.bannerScroll.checked = !!state.cfg.banner.scroll;
+    dom.bannerSpeed.value = String(state.cfg.banner.speed || 6);
   }
 
   /* ── Render: primary links ─────────────────────────────────── */
@@ -1056,6 +1104,13 @@
     if (!c.theme.fontDisplay) c.theme.fontDisplay = "Fraunces";
     if (!c.theme.fontBody)    c.theme.fontBody    = "Geist";
     if (!c.theme.fontMono)    c.theme.fontMono    = "JetBrains Mono";
+    c.banner = c.banner || {};
+    if (typeof c.banner.text !== "string") c.banner.text = "";
+    if (c.banner.enabled === undefined)    c.banner.enabled = false;
+    if (c.banner.scroll === undefined)     c.banner.scroll = false;
+    if (!c.banner.background) c.banner.background = "#3D5A4C";
+    if (!c.banner.textColor)  c.banner.textColor  = "#FFFFFF";
+    if (!c.banner.speed)      c.banner.speed = 6;
     return c;
   }
 

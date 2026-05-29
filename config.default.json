@@ -56,5 +56,13 @@
   "footer": {
     "showYear": true,
     "text": "Built with LinkHub"
+  },
+  "banner": {
+    "enabled": false,
+    "text": "",
+    "background": "#3D5A4C",
+    "textColor": "#FFFFFF",
+    "scroll": false,
+    "speed": 6
   }
 }

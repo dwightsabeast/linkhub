@@ -49,6 +49,54 @@
 }
 
 /* ============================================================
+   Announcement banner (optional, top of page)
+   ============================================================ */
+.banner {
+  position: relative;
+  z-index: 2;
+  background: var(--banner-bg, #3D5A4C);
+  color: var(--banner-fg, #ffffff);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 11px 16px;
+  overflow: hidden;
+}
+.banner .banner-text {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+/* Scrolling variant: two identical copies in a flex track, animated
+   by -50% (one copy width) for a seamless infinite loop. */
+.banner-is-scrolling { padding-left: 0; padding-right: 0; }
+.banner-is-scrolling .banner-track {
+  display: flex;
+  width: max-content;
+  animation: banner-marquee var(--banner-duration, 20s) linear infinite;
+}
+.banner-is-scrolling .banner-text { padding: 0 2rem; }
+
+@keyframes banner-marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .banner-is-scrolling { padding-left: 16px; padding-right: 16px; }
+  .banner-is-scrolling .banner-track {
+    animation: none;
+    width: auto;
+    justify-content: center;
+  }
+  .banner-is-scrolling .banner-text[aria-hidden="true"] { display: none; }
+  .banner-is-scrolling .banner-text { padding: 0; }
+}
+
+/* ============================================================
    Base
    ============================================================ */
 * { box-sizing: border-box; }
