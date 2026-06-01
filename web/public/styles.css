@@ -71,14 +71,21 @@
 }
 
 /* Scrolling variant: two identical copies in a flex track, animated
-   by -50% (one copy width) for a seamless infinite loop. */
+   by -50% (one copy width) for a seamless infinite loop.
+   Each copy is forced to at least the banner width so short text
+   still spans the full bar instead of leaving a trailing gap.
+*/
 .banner-is-scrolling { padding-left: 0; padding-right: 0; }
 .banner-is-scrolling .banner-track {
   display: flex;
   width: max-content;
   animation: banner-marquee var(--banner-duration, 20s) linear infinite;
 }
-.banner-is-scrolling .banner-text { padding: 0 2rem; }
+.banner-is-scrolling .banner-text {
+  padding: 0 2rem;
+  min-width: 100vw;
+  text-align: center;
+}
 
 @keyframes banner-marquee {
   from { transform: translateX(0); }
