@@ -36,6 +36,14 @@
 
 <a class="admin-view-live" href="/" target="_blank" rel="noopener">view live page &rarr;</a>
 
+<!-- Logout — revealed by admin.js only when AUTH_MODE=form (it probes
+     /api/session on load). A plain POST form so signing out still works
+     if the JS enhancement never runs; the server clears the session
+     cookie and redirects to /login. -->
+<form id="logout-form" class="admin-logout" method="POST" action="/logout" hidden>
+  <button type="submit">Log out</button>
+</form>
+
 <div class="admin-wrap">
 
   <header class="admin-top">

@@ -11,10 +11,12 @@
 //	LINKHUB_STATIC_DIR    shipped chrome dir  (default: /opt/linkhub/static)
 //	                       index.html.tmpl, admin.html, styles.css, …
 //	LINKHUB_LISTEN        bind address        (default: 0.0.0.0:8080)
-//	AUTH_MODE             trust_proxy | basic | none  (default: trust_proxy)
-//	BASIC_AUTH_USER       admin username      (required when AUTH_MODE=basic)
+//	AUTH_MODE             trust_proxy | basic | form | none
+//	                       (default: trust_proxy)
+//	BASIC_AUTH_USER       admin username      (required when AUTH_MODE
+//	                       is basic or form)
 //	BASIC_AUTH_HASH       bcrypt hash from linkhub-hash
-//	                       (required when AUTH_MODE=basic)
+//	                       (required when AUTH_MODE is basic or form)
 //
 // On signal (SIGINT, SIGTERM) the server drains in-flight requests
 // for up to 10s before exiting.
