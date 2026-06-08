@@ -79,6 +79,8 @@ func (s *Server) Handler() http.Handler {
 	adminMux.HandleFunc("GET /admin", s.handleAdmin)
 	adminMux.HandleFunc("GET /admin/", s.handleAdmin)
 	adminMux.HandleFunc("GET /api/session", s.handleSession)
+	adminMux.HandleFunc("GET /api/account", s.handleGetAccount)
+	adminMux.HandleFunc("PUT /api/account", s.handleSetAccount)
 	adminMux.HandleFunc("GET /api/config", s.handleGetConfig)
 	adminMux.HandleFunc("PUT /api/config", s.handleSetConfig)
 	adminMux.HandleFunc("POST /api/avatar", s.handleAvatar)

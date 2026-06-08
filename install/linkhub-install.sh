@@ -13,7 +13,9 @@ network_check
 update_os
 
 msg_info "Installing Dependencies"
-$STD apk add --no-cache curl ca-certificates util-linux
+# newt provides whiptail for the admin-login prompt; if there's no TTY
+# the install falls back to a generated password, so it's best-effort.
+$STD apk add --no-cache curl ca-certificates util-linux newt
 msg_ok "Installed Dependencies"
 
 # ── Fetch release ───────────────────────────────────────────────────
@@ -71,20 +73,68 @@ rm -rf /tmp/linkhub-linux-amd64.tar.gz /tmp/linkhub-linux-amd64.tar.gz.sha256 /t
 
 msg_ok "Installed LinkHub ${RELEASE}"
 
-# ── Environment file ────────────────────────────────────────────────
-msg_info "Configuring LinkHub"
+# ── Admin login ─────────────────────────────────────────────────────
+# New installs default to form auth (a styled login page). Prompt for
+# the admin username + password up front so the admin surface is gated
+# from the very first boot. If there's no interactive terminal we can't
+# prompt, so we generate a random password and surface it at the end —
+# setup never blocks, and the admin is still protected.
+msg_info "Configuring LinkHub admin login"
 
-cat >/etc/linkhub/linkhub.env <<'ENV'
+LH_ADMIN_USER=""
+LH_ADMIN_PASS=""
+if [ -t 0 ] && command -v whiptail >/dev/null 2>&1; then
+  LH_ADMIN_USER=$(whiptail --title "LinkHub Admin" \
+    --inputbox "Admin username for the LinkHub login page:" 9 60 "admin" \
+    3>&1 1>&2 2>&3) || LH_ADMIN_USER=""
+  LH_ADMIN_PASS=$(whiptail --title "LinkHub Admin" \
+    --passwordbox "Admin password (leave blank to auto-generate):" 9 60 \
+    3>&1 1>&2 2>&3) || LH_ADMIN_PASS=""
+fi
+
+[ -z "${LH_ADMIN_USER}" ] && LH_ADMIN_USER="admin"
+
+LH_GENERATED_PASS=""
+if [ -z "${LH_ADMIN_PASS}" ]; then
+  # 36 hex chars from the kernel RNG. No symbols, so it reads cleanly off
+  # the summary and can't trip shell quoting anywhere downstream.
+  LH_ADMIN_PASS=$(head -c 18 /dev/urandom | od -An -tx1 | tr -d ' \n')
+  LH_GENERATED_PASS="${LH_ADMIN_PASS}"
+fi
+
+# Hash with the binary we just installed. printf '%s' avoids folding a
+# trailing newline into the password.
+LH_ADMIN_HASH=$(printf '%s' "${LH_ADMIN_PASS}" | /opt/linkhub/linkhub-hash)
+
+# ── Environment file ────────────────────────────────────────────────
+# Unquoted heredoc so the variables expand; the values are wrapped in
+# *literal* single quotes in the file so the bcrypt hash's $ signs
+# survive the re-sourcing the OpenRC service does at boot.
+cat >/etc/linkhub/linkhub.env <<ENV
 LINKHUB_DATA_DIR=/var/lib/linkhub
 LINKHUB_STATIC_DIR=/opt/linkhub/static
 LINKHUB_LISTEN=0.0.0.0:8080
-AUTH_MODE=trust_proxy
+AUTH_MODE=form
+BASIC_AUTH_USER='${LH_ADMIN_USER}'
+BASIC_AUTH_HASH='${LH_ADMIN_HASH}'
 ENV
 
 chmod 640 /etc/linkhub/linkhub.env
 chown root:linkhub /etc/linkhub/linkhub.env
 
-msg_ok "Configured LinkHub"
+msg_ok "Configured LinkHub admin login (user: ${LH_ADMIN_USER})"
+
+if [ -n "${LH_GENERATED_PASS}" ]; then
+  # Persist the generated password where the operator can retrieve it,
+  # and print it. They should change it from the admin page after login.
+  printf 'LinkHub admin\n  user: %s\n  password: %s\n' \
+    "${LH_ADMIN_USER}" "${LH_GENERATED_PASS}" >/root/linkhub.creds
+  chmod 600 /root/linkhub.creds
+  msg_ok "Generated a random admin password (saved to /root/linkhub.creds)"
+  echo "  LinkHub admin user:     ${LH_ADMIN_USER}"
+  echo "  LinkHub admin password: ${LH_GENERATED_PASS}"
+  echo "  Change it from the admin page after you sign in."
+fi
 
 # ── OpenRC service ──────────────────────────────────────────────────
 msg_info "Creating Service"

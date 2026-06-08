@@ -11,7 +11,10 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/dwightsabeast/linkhub/internal/config"
 )
@@ -91,6 +94,128 @@ func (s *Server) handleSession(w http.ResponseWriter, _ *http.Request) {
 		"authMode":  mode,
 		"canLogout": mode == "form",
 	})
+}
+
+// maxUsernameRunes caps the admin username. Generous — it's a label,
+// not a security boundary.
+const maxUsernameRunes = 64
+
+// minPasswordBytes is the floor for an admin password set via the UI.
+// bcrypt's ceiling (72 bytes) is enforced in auth.hashPassword.
+const minPasswordBytes = 8
+
+// handleGetAccount returns the current admin username (never the hash)
+// so the Account card can display it. Form mode only — registered
+// behind the admin auth middleware.
+func (s *Server) handleGetAccount(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]string{
+		"username": s.opts.Auth.CurrentUsername(),
+	})
+}
+
+// accountUpdate is the PUT /api/account body. All fields optional
+// except currentPassword; an empty newPassword means "username only".
+type accountUpdate struct {
+	CurrentPassword string `json:"currentPassword"`
+	Username        string `json:"username"`
+	NewPassword     string `json:"newPassword"`
+}
+
+// handleSetAccount changes the admin username and/or password. It
+// requires the current password, validates the inputs, persists via
+// the auth credential store, and — on a password change — rotates all
+// sessions (logging out other devices) and re-issues the cookie for
+// the current admin so they aren't kicked out.
+func (s *Server) handleSetAccount(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 8<<10)
+	var in accountUpdate
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&in); err != nil {
+		http.Error(w, "malformed request", http.StatusBadRequest)
+		return
+	}
+
+	// Confirm the current password before allowing any change.
+	if !s.opts.Auth.VerifyPassword(in.CurrentPassword) {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{
+			"error": "current password is incorrect",
+		})
+		return
+	}
+
+	// Resolve the target username: keep the current one if not supplied.
+	username := strings.TrimSpace(in.Username)
+	if username == "" {
+		username = s.opts.Auth.CurrentUsername()
+	}
+	if n := utf8.RuneCountInString(username); n < 1 || n > maxUsernameRunes {
+		writeJSON(w, http.StatusBadRequest, map[string]string{
+			"error": "username must be 1–64 characters",
+		})
+		return
+	}
+	if hasControlRunes(username) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{
+			"error": "username contains invalid characters",
+		})
+		return
+	}
+
+	changingPassword := in.NewPassword != ""
+	if changingPassword {
+		if len(in.NewPassword) < minPasswordBytes {
+			writeJSON(w, http.StatusBadRequest, map[string]string{
+				"error": "new password must be at least 8 characters",
+			})
+			return
+		}
+		if len(in.NewPassword) > 72 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{
+				"error": "new password is too long (max 72 bytes)",
+			})
+			return
+		}
+	}
+
+	if err := s.opts.Auth.UpdateCredentials(username, in.NewPassword); err != nil {
+		log.Printf("account update: %v", err)
+		http.Error(w, "could not save credentials", http.StatusInternalServerError)
+		return
+	}
+
+	// A password change revokes every existing session. Re-issue one for
+	// the admin making the change so this tab stays signed in.
+	if changingPassword {
+		token, err := s.opts.Auth.RotateSessions()
+		if err != nil {
+			log.Printf("account rotate sessions: %v", err)
+			// The credential is already saved; report success but the
+			// admin may need to log in again.
+			writeJSON(w, http.StatusOK, map[string]string{
+				"status":   "ok",
+				"username": username,
+				"note":     "password changed; please sign in again",
+			})
+			return
+		}
+		s.opts.Auth.SetSessionCookie(w, r, token)
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{
+		"status":   "ok",
+		"username": username,
+	})
+}
+
+// hasControlRunes reports whether s contains any control characters.
+func hasControlRunes(s string) bool {
+	for _, r := range s {
+		if unicode.IsControl(r) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Server) handleGetConfig(w http.ResponseWriter, _ *http.Request) {

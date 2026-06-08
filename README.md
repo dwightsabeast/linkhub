@@ -16,16 +16,18 @@ State lives on disk: `config.json` plus a tiny `assets/` directory for the avata
 
 The binary idles at under 30 MB of RAM. The default Proxmox LXC the install script provisions has 128 MB and 1 GB of disk, which is generous.
 
-## Three auth modes
+## Four auth modes
 
 The public page (`GET /`) is always public. Everything else — `/admin` and the write endpoints under `/api/` — runs through one of these:
 
-- **`trust_proxy`** *(recommended)* — the binary trusts your reverse proxy or Cloudflare Access policy. No auth in the binary itself. This is the right choice if you're already running a tunnel.
-- **`basic`** — built-in HTTP Basic Auth with a bcrypt-hashed password. Set during install.
-- **`form`** — a styled login page at `/login` backed by a bcrypt-hashed password and an in-memory session cookie. Use the same `BASIC_AUTH_USER` / `BASIC_AUTH_HASH` as `basic`; you get a real sign-in screen and a logout button in the admin instead of the browser's Basic Auth prompt. Sessions are process-local, so a restart signs everyone out.
+- **`form`** *(default for new installs)* — a styled login page at `/login` backed by a bcrypt-hashed password and an in-memory session cookie. You set the username and password during install; once signed in you can change them from the **Admin account** card in the admin (no file editing, no restart). There's a logout button in the admin. Sessions are process-local, so a restart signs everyone out.
+- **`trust_proxy`** — the binary trusts your reverse proxy or Cloudflare Access policy. No auth in the binary itself. The right choice if you're already running a tunnel with an Access policy on `/admin`.
+- **`basic`** — built-in HTTP Basic Auth with a bcrypt-hashed password (the browser's native prompt, no logout). Credentials come from `BASIC_AUTH_USER` / `BASIC_AUTH_HASH`.
 - **`none`** — no auth. Only safe on a fully private network, and the binary will warn you about it at every boot.
 
 The mode is set via `AUTH_MODE` in `/etc/linkhub/linkhub.env`. Switching later means editing that file and restarting the service.
+
+**Where form credentials live.** The install writes the initial username/password into `BASIC_AUTH_USER` / `BASIC_AUTH_HASH` in the env file. The first time you change them from the admin, they're saved to `auth.json` in the data dir (`/var/lib/linkhub/auth.json`) — which the daemon can rewrite, unlike the root-owned env file. From then on `auth.json` is authoritative and later edits to the env credentials are ignored.
 
 ## Install on Proxmox VE
 
@@ -35,17 +37,16 @@ The fast path. Run on the Proxmox host shell as root:
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/dwightsabeast/linkhub/main/ct/linkhub.sh)"
 ```
 
-The script will prompt for a container ID, hostname, resources, and the auth mode. It creates an unprivileged Alpine LXC, downloads the latest release tarball, lays down the default config, registers an OpenRC service, and prints the bound URL when it finishes.
+The script will prompt for a container ID, hostname, resources, and the **admin username and password** for the login page. It creates an unprivileged Alpine LXC, downloads the latest release tarball, lays down the default config, registers an OpenRC service, and prints the bound URL when it finishes. (If the installer can't show a prompt, it generates a random password and prints it — and saves it to `/root/linkhub.creds` — so the admin is still protected.)
 
 After install you'll have:
 
 - An LXC running on the IP the script printed
 - The service answering on port 8080 inside the container
 - Default content visible at the IP — placeholder links and a generated avatar
+- The admin at `/admin` gated by the login you set (form auth)
 
-Point your reverse proxy or Cloudflare Tunnel at `http://<lxc-ip>:8080` and open `/admin` to start editing.
-
-If you picked `trust_proxy`, remember: the binary itself doesn't gate `/admin`. Your proxy must. With Cloudflare Tunnel this is one Access policy on the `/admin` path.
+Point your reverse proxy or Cloudflare Tunnel at `http://<lxc-ip>:8080` and open `/admin` to start editing. You'll be sent to `/login` first; sign in with the credentials from install. To change them later, use the **Admin account** card in the admin — or switch to `trust_proxy` if you'd rather gate `/admin` entirely at your proxy.
 
 ## Install manually (other Linux)
 
@@ -156,8 +157,8 @@ Environment variables read at startup:
 - `LINKHUB_DATA_DIR` — where `config.json` and `assets/` live. Default `/var/lib/linkhub`.
 - `LINKHUB_STATIC_DIR` — where the shipped templates and CSS live. Default `/opt/linkhub/static`.
 - `LINKHUB_LISTEN` — bind address. Default `0.0.0.0:8080`.
-- `AUTH_MODE` — `trust_proxy`, `basic`, `form`, or `none`. Default `trust_proxy`.
-- `BASIC_AUTH_USER` / `BASIC_AUTH_HASH` — required when `AUTH_MODE` is `basic` or `form`.
+- `AUTH_MODE` — `trust_proxy`, `basic`, `form`, or `none`. The binary defaults to `trust_proxy` when unset; the installer writes `form` for new installs.
+- `BASIC_AUTH_USER` / `BASIC_AUTH_HASH` — required for `basic`; the initial credential (bootstrap) for `form`. Once you change a `form` login from the admin, `auth.json` in the data dir takes over and these are ignored. **Quote the hash with single quotes** in the env file — it contains `$`, which the shell would otherwise expand on load.
 
 Length budgets enforced by the server on save: name 32, tagline 60, bio 240, location 60, link label 36, link description 60, footer 80, meta title 100, meta description 200. Up to 12 primary links and 12 social pills.
 
