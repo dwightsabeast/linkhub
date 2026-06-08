@@ -80,6 +80,19 @@ func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
 	_, _ = io.Copy(w, f)
 }
 
+// handleSession reports the active auth mode to the admin UI. The page
+// reaches this only after passing the auth middleware, so a 200 here
+// already implies an authenticated admin; the body just tells admin.js
+// whether to surface the logout button (form mode) or hide it (every
+// other mode, where there's no session to end).
+func (s *Server) handleSession(w http.ResponseWriter, _ *http.Request) {
+	mode := s.opts.Auth.ModeString()
+	writeJSON(w, http.StatusOK, map[string]any{
+		"authMode":  mode,
+		"canLogout": mode == "form",
+	})
+}
+
 func (s *Server) handleGetConfig(w http.ResponseWriter, _ *http.Request) {
 	cfg := s.opts.Store.Get()
 	writeJSON(w, http.StatusOK, cfg)

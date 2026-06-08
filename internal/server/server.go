@@ -54,6 +54,14 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /{$}", s.handleIndex)
 	mux.HandleFunc("GET /healthz", s.handleHealth)
 
+	// Form-auth sign-in / sign-out. These must be reachable without a
+	// session, so they live on the public mux rather than behind the
+	// admin auth middleware. In non-form modes the handlers just
+	// redirect to /admin (there's nothing to log in or out of).
+	mux.HandleFunc("GET /login", s.opts.Auth.LoginHandler)
+	mux.HandleFunc("POST /login", s.opts.Auth.LoginHandler)
+	mux.HandleFunc("POST /logout", s.opts.Auth.LogoutHandler)
+
 	// Static assets shipped with the release tarball. The template
 	// references /static/styles.css, /static/admin.js, etc.
 	staticFS := http.FileServer(http.Dir(s.opts.StaticDir))
@@ -70,6 +78,7 @@ func (s *Server) Handler() http.Handler {
 	adminMux := http.NewServeMux()
 	adminMux.HandleFunc("GET /admin", s.handleAdmin)
 	adminMux.HandleFunc("GET /admin/", s.handleAdmin)
+	adminMux.HandleFunc("GET /api/session", s.handleSession)
 	adminMux.HandleFunc("GET /api/config", s.handleGetConfig)
 	adminMux.HandleFunc("PUT /api/config", s.handleSetConfig)
 	adminMux.HandleFunc("POST /api/avatar", s.handleAvatar)

@@ -22,6 +22,7 @@ The public page (`GET /`) is always public. Everything else — `/admin` and the
 
 - **`trust_proxy`** *(recommended)* — the binary trusts your reverse proxy or Cloudflare Access policy. No auth in the binary itself. This is the right choice if you're already running a tunnel.
 - **`basic`** — built-in HTTP Basic Auth with a bcrypt-hashed password. Set during install.
+- **`form`** — a styled login page at `/login` backed by a bcrypt-hashed password and an in-memory session cookie. Use the same `BASIC_AUTH_USER` / `BASIC_AUTH_HASH` as `basic`; you get a real sign-in screen and a logout button in the admin instead of the browser's Basic Auth prompt. Sessions are process-local, so a restart signs everyone out.
 - **`none`** — no auth. Only safe on a fully private network, and the binary will warn you about it at every boot.
 
 The mode is set via `AUTH_MODE` in `/etc/linkhub/linkhub.env`. Switching later means editing that file and restarting the service.
@@ -95,7 +96,17 @@ BASIC_AUTH_USER=admin
 BASIC_AUTH_HASH=<paste-hash-here>
 ```
 
-For `basic`, generate the hash by piping the password through `linkhub-hash`:
+```sh
+# form — styled login page + session cookie (same credentials as basic)
+LINKHUB_DATA_DIR=/var/lib/linkhub
+LINKHUB_STATIC_DIR=/opt/linkhub/static
+LINKHUB_LISTEN=0.0.0.0:8080
+AUTH_MODE=form
+BASIC_AUTH_USER=admin
+BASIC_AUTH_HASH=<paste-hash-here>
+```
+
+For `basic` and `form`, generate the hash by piping the password through `linkhub-hash`:
 
 ```sh
 echo -n 'your-password' | /opt/linkhub/linkhub-hash
@@ -145,8 +156,8 @@ Environment variables read at startup:
 - `LINKHUB_DATA_DIR` — where `config.json` and `assets/` live. Default `/var/lib/linkhub`.
 - `LINKHUB_STATIC_DIR` — where the shipped templates and CSS live. Default `/opt/linkhub/static`.
 - `LINKHUB_LISTEN` — bind address. Default `0.0.0.0:8080`.
-- `AUTH_MODE` — `trust_proxy`, `basic`, or `none`. Default `trust_proxy`.
-- `BASIC_AUTH_USER` / `BASIC_AUTH_HASH` — required when `AUTH_MODE=basic`.
+- `AUTH_MODE` — `trust_proxy`, `basic`, `form`, or `none`. Default `trust_proxy`.
+- `BASIC_AUTH_USER` / `BASIC_AUTH_HASH` — required when `AUTH_MODE` is `basic` or `form`.
 
 Length budgets enforced by the server on save: name 32, tagline 60, bio 240, location 60, link label 36, link description 60, footer 80, meta title 100, meta description 200. Up to 12 primary links and 12 social pills.
 

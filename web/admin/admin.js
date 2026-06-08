@@ -225,6 +225,7 @@
   document.addEventListener("DOMContentLoaded", () => {
     resolveDom();
     initTheme();
+    initSession();
     populateIconDatalist();
     renderPresetButtons();
     bindGlobalControls();
@@ -251,6 +252,7 @@
     dom = {
       // Top chrome
       themeToggle: document.getElementById("theme-toggle"),
+      logoutForm: document.getElementById("logout-form"),
       status: document.getElementById("admin-status"),
 
       // Profile
@@ -366,6 +368,26 @@
               stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
          </svg>`;
+  }
+
+  /* ── Session ───────────────────────────────────────────────── */
+
+  // Probe the server for the active auth mode and reveal the logout
+  // button only under form auth — the other modes have no session to
+  // end (trust_proxy/none) or are killed by closing the browser
+  // (basic). Best-effort: if the probe fails the button just stays
+  // hidden and the rest of the page is unaffected.
+  function initSession() {
+    fetch("/api/session", { headers: { "Accept": "application/json" } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((info) => {
+        if (info && info.canLogout && dom.logoutForm) {
+          dom.logoutForm.hidden = false;
+        }
+      })
+      .catch((err) => {
+        console.warn("session probe failed", err);
+      });
   }
 
   /* ── Icon datalist ─────────────────────────────────────────── */
