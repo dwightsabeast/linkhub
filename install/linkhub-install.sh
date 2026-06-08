@@ -30,10 +30,30 @@ mkdir -p /opt/linkhub/static/assets
 mkdir -p /var/lib/linkhub/assets
 mkdir -p /etc/linkhub
 
-# Download and extract
+# Download and extract. Retry + checksum-verify: a just-pushed release
+# can expose its tag via /releases/latest a beat before the tarball
+# finishes uploading (the download 404s), and asset fetches sometimes
+# 429/500. Retry a few times rather than failing the whole install.
 cd /tmp
-$STD curl -fsSL "https://github.com/dwightsabeast/linkhub/releases/download/${RELEASE}/linkhub-linux-amd64.tar.gz" -o linkhub.tar.gz
-$STD tar xzf linkhub.tar.gz
+BASE="https://github.com/dwightsabeast/linkhub/releases/download/${RELEASE}"
+TARBALL="linkhub-linux-amd64.tar.gz"
+rm -f "${TARBALL}" "${TARBALL}.sha256"
+DL_OK=""
+for attempt in 1 2 3 4 5; do
+  if curl -fsSL "${BASE}/${TARBALL}" -o "${TARBALL}" &&
+    curl -fsSL "${BASE}/${TARBALL}.sha256" -o "${TARBALL}.sha256" &&
+    sha256sum -c "${TARBALL}.sha256" >/dev/null 2>&1; then
+    DL_OK="yes"
+    break
+  fi
+  rm -f "${TARBALL}" "${TARBALL}.sha256"
+  sleep 15
+done
+if [ -z "${DL_OK}" ]; then
+  msg_error "Could not download a valid LinkHub ${RELEASE} tarball after 5 tries."
+  exit 1
+fi
+$STD tar xzf "${TARBALL}"
 mv linkhub /opt/linkhub/linkhub
 mv linkhub-hash /opt/linkhub/linkhub-hash
 cp -r static/* /opt/linkhub/static/
@@ -47,7 +67,7 @@ fi
 
 chown -R linkhub:linkhub /var/lib/linkhub
 echo "${RELEASE}" >/opt/linkhub/.version
-rm -rf /tmp/linkhub.tar.gz /tmp/static /tmp/config.default.json
+rm -rf /tmp/linkhub-linux-amd64.tar.gz /tmp/linkhub-linux-amd64.tar.gz.sha256 /tmp/static /tmp/config.default.json
 
 msg_ok "Installed LinkHub ${RELEASE}"
 
