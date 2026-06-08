@@ -80,6 +80,14 @@ func (s *sessionStore) destroy(token string) {
 	delete(s.sessions, token)
 }
 
+// destroyAll drops every session at once. Used when the password
+// changes so any session minted under the old credential is revoked.
+func (s *sessionStore) destroyAll() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.sessions = make(map[string]time.Time)
+}
+
 // gcLocked drops every expired entry. Called under s.mu from create()
 // so the map doesn't grow without bound as sessions age out; valid()
 // also prunes on access. There's no background goroutine — login is

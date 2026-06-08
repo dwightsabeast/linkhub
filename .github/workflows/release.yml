@@ -70,11 +70,11 @@ jobs:
           echo "checksum:"
           cat dist/linkhub-linux-amd64.tar.gz.sha256
 
-      - name: publish release
+      - name: publish release (draft with assets)
         # softprops/action-gh-release attaches files to the release
-        # the tag implicitly created. If the release doesn't exist
-        # yet it's created with the tag's name and an empty body —
-        # we'll edit notes by hand for v0.x.
+        # the tag implicitly created. We create it as a *draft* so the
+        # release isn't visible to consumers until every asset is
+        # attached — see the promote step below.
         uses: softprops/action-gh-release@v2
         with:
           files: |
@@ -83,7 +83,19 @@ jobs:
           # Don't auto-generate notes; the human who tagged knows
           # what shipped. Empty body is fine for a first release.
           generate_release_notes: false
-          # Mark drafts only when explicitly requested. Tags push
-          # straight to "Latest".
-          draft: false
+          # Upload as a draft first. The install/update scripts resolve
+          # the version via /releases/latest, which excludes drafts —
+          # so the new tag stays invisible until the tarball + checksum
+          # are fully uploaded. This closes the race where the release
+          # is "Latest" but the asset still 404s mid-upload.
+          draft: true
           prerelease: false
+
+      - name: promote release to latest
+        # Flip the draft to published now that both assets are attached.
+        # Only from here does /releases/latest return this version, and
+        # by then the tarball is downloadable. gh is preinstalled on the
+        # GitHub-hosted runner.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "${GITHUB_REF_NAME}" --draft=false --latest

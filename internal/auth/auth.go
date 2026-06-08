@@ -59,25 +59,46 @@ func ParseMode(s string) (Mode, error) {
 	}
 }
 
+// bcryptCost is the work factor for hashes we generate in-app (the
+// account-settings password change). Matches cmd/linkhub-hash. 72 is
+// bcrypt's hard input limit; we refuse longer rather than silently
+// truncate.
+const (
+	bcryptCost     = 12
+	bcryptMaxBytes = 72
+)
+
 // Config holds the resolved auth settings. Build via NewConfig.
 type Config struct {
 	Mode Mode
-	user string
-	hash []byte
+	user string // env BASIC_AUTH_USER — bootstrap fallback for ModeForm
+	hash []byte // env BASIC_AUTH_HASH — bootstrap fallback for ModeForm
 
 	// sessions is the live session set for ModeForm. nil in every
 	// other mode — guard accesses on Mode == ModeForm.
 	sessions *sessionStore
+
+	// credentials is the data-dir credential store for ModeForm. Once
+	// the admin changes the login from the UI it is written here and
+	// takes precedence over the env user/hash. nil outside ModeForm.
+	credentials *credStore
 }
 
-// NewConfig validates inputs and returns an auth Config. user/hash
-// are only consulted when Mode is ModeBasic or ModeForm — both check
-// a password against a bcrypt hash; they differ only in how the
-// credential is presented (HTTP Basic header vs. a login form). For
-// the other modes user/hash are ignored (and may be empty).
-func NewConfig(mode Mode, user, hash string) (*Config, error) {
+// NewConfig validates inputs and returns an auth Config.
+//
+// user/hash come from BASIC_AUTH_USER / BASIC_AUTH_HASH. For ModeBasic
+// they are required (env is the only credential source). For ModeForm
+// they are an optional *bootstrap*: the persisted credential at
+// credPath (auth.json in the data dir) takes precedence if present, so
+// an install that only ever set the password in-app needs no env
+// credential. credPath is ignored outside ModeForm.
+func NewConfig(mode Mode, user, hash, credPath string) (*Config, error) {
 	c := &Config{Mode: mode}
-	if mode == ModeBasic || mode == ModeForm {
+
+	// Validate env creds when they're the authoritative source (basic)
+	// or when they were supplied as a form-mode bootstrap.
+	envProvided := user != "" || hash != ""
+	if mode == ModeBasic || (mode == ModeForm && envProvided) {
 		if user == "" {
 			return nil, errors.New("BASIC_AUTH_USER is empty")
 		}
@@ -86,18 +107,29 @@ func NewConfig(mode Mode, user, hash string) (*Config, error) {
 		}
 		// Sniff for the bcrypt prefix so we fail loudly at boot rather
 		// than at first login attempt.
-		if !strings.HasPrefix(hash, "$2a$") &&
-			!strings.HasPrefix(hash, "$2b$") &&
-			!strings.HasPrefix(hash, "$2y$") {
+		if !looksLikeBcrypt(hash) {
 			return nil, errors.New("BASIC_AUTH_HASH does not look like a bcrypt hash")
 		}
 		c.user = user
 		c.hash = []byte(hash)
 	}
+
 	if mode == ModeForm {
 		c.sessions = newSessionStore(defaultSessionTTL)
+		store, err := newCredStore(credPath)
+		if err != nil {
+			return nil, err
+		}
+		c.credentials = store
 	}
 	return c, nil
+}
+
+// looksLikeBcrypt reports whether s has a recognized bcrypt prefix.
+func looksLikeBcrypt(s string) bool {
+	return strings.HasPrefix(s, "$2a$") ||
+		strings.HasPrefix(s, "$2b$") ||
+		strings.HasPrefix(s, "$2y$")
 }
 
 // Middleware wraps next with the configured auth check. On unauth it
@@ -112,15 +144,7 @@ func (c *Config) Middleware(next http.Handler) http.Handler {
 	case ModeBasic:
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			user, pass, ok := r.BasicAuth()
-			if !ok {
-				c.challenge(w)
-				return
-			}
-			// Compare username with constant time too — len-leak is
-			// minor here but cheap to avoid.
-			userOK := subtle.ConstantTimeCompare([]byte(user), []byte(c.user)) == 1
-			passOK := bcrypt.CompareHashAndPassword(c.hash, []byte(pass)) == nil
-			if !userOK || !passOK {
+			if !ok || !c.verify(user, pass) {
 				c.challenge(w)
 				return
 			}
@@ -128,6 +152,13 @@ func (c *Config) Middleware(next http.Handler) http.Handler {
 		})
 	case ModeForm:
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Fail closed if form auth has no credential at all (no
+			// auth.json and no BASIC_AUTH_*). This is a misconfiguration
+			// — never silently let the admin through.
+			if _, _, ok := c.currentCreds(); !ok {
+				http.Error(w, "admin auth is not configured", http.StatusInternalServerError)
+				return
+			}
 			if cookie, err := r.Cookie(sessionCookieName); err == nil &&
 				c.sessions.valid(cookie.Value) {
 				next.ServeHTTP(w, r)
@@ -155,6 +186,112 @@ func (c *Config) Middleware(next http.Handler) http.Handler {
 func (c *Config) challenge(w http.ResponseWriter) {
 	w.Header().Set("WWW-Authenticate", `Basic realm="LinkHub admin", charset="UTF-8"`)
 	http.Error(w, "Unauthorized", http.StatusUnauthorized)
+}
+
+// ── credential resolution ────────────────────────────────────────
+
+// currentCreds returns the authoritative username + bcrypt hash and
+// whether any credential is configured. The data-dir store wins; the
+// env bootstrap is the fallback.
+func (c *Config) currentCreds() (user, hash string, ok bool) {
+	if c.credentials != nil {
+		if cr, found := c.credentials.get(); found {
+			return cr.Username, cr.Hash, true
+		}
+	}
+	if c.user != "" && len(c.hash) > 0 {
+		return c.user, string(c.hash), true
+	}
+	return "", "", false
+}
+
+// verify checks a username + password against the current credential
+// in constant time (for the username) plus bcrypt (for the password).
+func (c *Config) verify(user, pass string) bool {
+	wantUser, wantHash, ok := c.currentCreds()
+	if !ok {
+		return false
+	}
+	userOK := subtle.ConstantTimeCompare([]byte(user), []byte(wantUser)) == 1
+	passOK := bcrypt.CompareHashAndPassword([]byte(wantHash), []byte(pass)) == nil
+	return userOK && passOK
+}
+
+// VerifyPassword checks pass against the current password only (no
+// username). Used to confirm the current password before an
+// account change.
+func (c *Config) VerifyPassword(pass string) bool {
+	_, wantHash, ok := c.currentCreds()
+	if !ok {
+		return false
+	}
+	return bcrypt.CompareHashAndPassword([]byte(wantHash), []byte(pass)) == nil
+}
+
+// CurrentUsername returns the configured admin username, or "" if none.
+func (c *Config) CurrentUsername() string {
+	u, _, _ := c.currentCreds()
+	return u
+}
+
+// UpdateCredentials persists a new username and (optionally) password
+// to the data-dir store. An empty newPassword keeps the current hash —
+// useful for a username-only change. Only valid in ModeForm.
+func (c *Config) UpdateCredentials(username, newPassword string) error {
+	if c.credentials == nil {
+		return errors.New("credential store is unavailable")
+	}
+	if username == "" {
+		return errors.New("username is empty")
+	}
+	_, curHash, _ := c.currentCreds()
+	hash := curHash
+	if newPassword != "" {
+		h, err := hashPassword(newPassword)
+		if err != nil {
+			return err
+		}
+		hash = h
+	}
+	if hash == "" {
+		return errors.New("no password set")
+	}
+	return c.credentials.save(username, hash)
+}
+
+// RotateSessions invalidates every live session and mints a fresh one,
+// returning its token. Called after a password change so other devices
+// are logged out while the active admin keeps a valid (re-issued)
+// session. Only valid in ModeForm.
+func (c *Config) RotateSessions() (string, error) {
+	if c.sessions == nil {
+		return "", errors.New("no session store")
+	}
+	c.sessions.destroyAll()
+	return c.sessions.create()
+}
+
+// SetSessionCookie writes the session cookie for token onto w. Thin
+// exported wrapper so the server can set the cookie after rotating
+// sessions without duplicating cookie attributes.
+func (c *Config) SetSessionCookie(w http.ResponseWriter, r *http.Request, token string) {
+	setSessionCookie(w, r, token, int(defaultSessionTTL.Seconds()))
+}
+
+// hashPassword bcrypt-hashes pw at our standard cost, refusing empty or
+// over-limit inputs (mirrors cmd/linkhub-hash).
+func hashPassword(pw string) (string, error) {
+	if len(pw) == 0 {
+		return "", errors.New("password is empty")
+	}
+	if len(pw) > bcryptMaxBytes {
+		return "", fmt.Errorf("password is %d bytes; bcrypt's limit is %d", len(pw), bcryptMaxBytes)
+	}
+	h, err := bcrypt.GenerateFromPassword([]byte(pw), bcryptCost)
+	if err != nil {
+		return "", err
+	}
+	return string(h), nil
 }
 
 // LoginHandler serves the form-auth sign-in page (GET) and processes a
@@ -189,12 +326,9 @@ func (c *Config) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		pass := r.PostForm.Get("password")
 		next := safeNext(r.PostForm.Get("next"))
 
-		// Constant-time username compare to match the basic path, then
-		// bcrypt the password. We render one generic error for either
-		// failure so we don't disclose which field was wrong.
-		userOK := subtle.ConstantTimeCompare([]byte(user), []byte(c.user)) == 1
-		passOK := bcrypt.CompareHashAndPassword(c.hash, []byte(pass)) == nil
-		if !userOK || !passOK {
+		// One generic error for either a bad username or bad password so
+		// we don't disclose which field was wrong.
+		if !c.verify(user, pass) {
 			w.WriteHeader(http.StatusUnauthorized)
 			c.renderLogin(w, "Incorrect username or password.", next)
 			return
@@ -273,7 +407,15 @@ func (c *Config) LogStartup() {
 	case ModeBasic:
 		log.Printf("auth: basic — admin requires HTTP Basic Auth (user=%q)", c.user)
 	case ModeForm:
-		log.Printf("auth: form — admin requires login at /login (user=%q, session TTL %s)", c.user, defaultSessionTTL)
+		if user, _, ok := c.currentCreds(); ok {
+			src := "BASIC_AUTH_* env"
+			if c.credentials != nil && c.credentials.configured() {
+				src = "auth.json"
+			}
+			log.Printf("auth: form — admin requires login at /login (user=%q via %s, session TTL %s)", user, src, defaultSessionTTL)
+		} else {
+			log.Printf("auth: form — WARNING: no credential configured (no auth.json, no BASIC_AUTH_*); admin is locked until one is set")
+		}
 	case ModeNone:
 		log.Printf("auth: none — admin is open. Do not expose this LXC publicly without an upstream gate.")
 	}

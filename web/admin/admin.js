@@ -255,6 +255,14 @@
       logoutForm: document.getElementById("logout-form"),
       status: document.getElementById("admin-status"),
 
+      // Account (form auth only)
+      accountCard:            document.getElementById("account-card"),
+      accountUsername:        document.getElementById("account-username"),
+      accountNewPassword:     document.getElementById("account-new-password"),
+      accountConfirmPassword: document.getElementById("account-confirm-password"),
+      accountCurrentPassword: document.getElementById("account-current-password"),
+      accountSaveBtn:         document.getElementById("account-save-btn"),
+
       // Profile
       profileName:     document.getElementById("profile-name"),
       profileTagline:  document.getElementById("profile-tagline"),
@@ -381,13 +389,82 @@
     fetch("/api/session", { headers: { "Accept": "application/json" } })
       .then((res) => (res.ok ? res.json() : null))
       .then((info) => {
-        if (info && info.canLogout && dom.logoutForm) {
-          dom.logoutForm.hidden = false;
+        if (info && info.canLogout) {
+          if (dom.logoutForm) dom.logoutForm.hidden = false;
+          // Form auth → the login is editable. Reveal the Account card
+          // and load the current username into it.
+          if (dom.accountCard) {
+            dom.accountCard.hidden = false;
+            loadAccount();
+          }
         }
       })
       .catch((err) => {
         console.warn("session probe failed", err);
       });
+  }
+
+  /* ── Account (form auth only) ──────────────────────────────── */
+
+  function loadAccount() {
+    fetch("/api/account", { headers: { "Accept": "application/json" } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((info) => {
+        if (info && typeof info.username === "string") {
+          dom.accountUsername.value = info.username;
+        }
+      })
+      .catch((err) => console.warn("account load failed", err));
+  }
+
+  async function saveAccount() {
+    const username = dom.accountUsername.value.trim();
+    const newPassword = dom.accountNewPassword.value;
+    const confirm = dom.accountConfirmPassword.value;
+    const current = dom.accountCurrentPassword.value;
+
+    if (!username) {
+      setStatus("username can’t be empty", "is-error", { sticky: true });
+      return;
+    }
+    if (newPassword && newPassword.length < 8) {
+      setStatus("new password must be at least 8 characters", "is-error", { sticky: true });
+      return;
+    }
+    if (newPassword !== confirm) {
+      setStatus("new passwords don’t match", "is-error", { sticky: true });
+      return;
+    }
+    if (!current) {
+      setStatus("enter your current password to save", "is-error", { sticky: true });
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/account", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentPassword: current,
+          username: username,
+          newPassword: newPassword,
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setStatus(body.error || "could not update account", "is-error", { sticky: true });
+        return;
+      }
+      // Clear the password fields; keep the (possibly new) username shown.
+      dom.accountNewPassword.value = "";
+      dom.accountConfirmPassword.value = "";
+      dom.accountCurrentPassword.value = "";
+      if (typeof body.username === "string") dom.accountUsername.value = body.username;
+      setStatus(body.note || "account updated", "is-saved");
+    } catch (err) {
+      console.error(err);
+      setStatus("could not update account", "is-error", { sticky: true });
+    }
   }
 
   /* ── Icon datalist ─────────────────────────────────────────── */
@@ -476,6 +553,17 @@
     });
     dom.copyBtn.addEventListener("click", copyConfigJSON);
     dom.downloadBtn.addEventListener("click", downloadConfigJSON);
+
+    // Account (only present/visible under form auth). Guard the ref in
+    // case the element is absent.
+    if (dom.accountSaveBtn) {
+      dom.accountSaveBtn.addEventListener("click", () => {
+        saveAccount().catch((err) => {
+          console.error(err);
+          setStatus("could not update account", "is-error", { sticky: true });
+        });
+      });
+    }
     dom.reloadBtn.addEventListener("click", () => {
       if (isDirty() && !confirm("Discard unsaved changes and reload from server?")) return;
       loadConfig().catch((err) => {

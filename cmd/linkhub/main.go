@@ -14,9 +14,14 @@
 //	AUTH_MODE             trust_proxy | basic | form | none
 //	                       (default: trust_proxy)
 //	BASIC_AUTH_USER       admin username      (required when AUTH_MODE
-//	                       is basic or form)
+//	                       is basic; bootstrap for form)
 //	BASIC_AUTH_HASH       bcrypt hash from linkhub-hash
-//	                       (required when AUTH_MODE is basic or form)
+//	                       (required when AUTH_MODE is basic; bootstrap
+//	                       for form)
+//
+// In form mode the admin can change its login from the UI; the new
+// username + bcrypt hash are persisted to <data dir>/auth.json and take
+// precedence over the BASIC_AUTH_* env bootstrap.
 //
 // On signal (SIGINT, SIGTERM) the server drains in-flight requests
 // for up to 10s before exiting.
@@ -92,9 +97,15 @@ func main() {
 	if err != nil {
 		log.Fatalf("AUTH_MODE: %v", err)
 	}
+	// In form mode the admin can change its own login from the UI; the
+	// new credential is persisted to auth.json in the data dir (the
+	// daemon can't rewrite the root-owned env file). It overrides the
+	// BASIC_AUTH_* env bootstrap once written.
+	credPath := filepath.Join(dataDir, "auth.json")
 	authCfg, err := auth.NewConfig(mode,
 		os.Getenv("BASIC_AUTH_USER"),
-		os.Getenv("BASIC_AUTH_HASH"))
+		os.Getenv("BASIC_AUTH_HASH"),
+		credPath)
 	if err != nil {
 		log.Fatalf("auth: %v", err)
 	}

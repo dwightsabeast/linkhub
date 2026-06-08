@@ -30,20 +30,48 @@ function update_script() {
 
   RELEASE=$(curl -fsSL https://api.github.com/repos/dwightsabeast/linkhub/releases/latest | grep '"tag_name":' | cut -d '"' -f4)
   if [ "${RELEASE}" != "$(cat /opt/linkhub/.version 2>/dev/null)" ] || [ ! -f /opt/linkhub/.version ]; then
+    # Download and checksum-verify into a staging area *before* touching
+    # the running service. A just-pushed release can expose its tag via
+    # /releases/latest a beat before the tarball finishes uploading (the
+    # download 404s), and GitHub asset fetches occasionally 429/500.
+    # Retrying here — and stopping LinkHub only once we hold a verified
+    # tarball — means a flaky download can never leave the site down.
+    local base="https://github.com/dwightsabeast/linkhub/releases/download/${RELEASE}"
+    local tarball="linkhub-linux-amd64.tar.gz"
+    cd /tmp
+    rm -rf "${tarball}" "${tarball}.sha256" linkhub-stage
+
+    msg_info "Downloading ${APP} ${RELEASE}"
+    local ok="" attempt
+    for attempt in 1 2 3 4 5; do
+      if curl -fsSL "${base}/${tarball}" -o "${tarball}" &&
+        curl -fsSL "${base}/${tarball}.sha256" -o "${tarball}.sha256" &&
+        sha256sum -c "${tarball}.sha256" >/dev/null 2>&1; then
+        ok="yes"
+        break
+      fi
+      rm -f "${tarball}" "${tarball}.sha256"
+      sleep 15
+    done
+    if [ -z "${ok}" ]; then
+      msg_error "Could not fetch a valid ${APP} ${RELEASE} tarball after 5 tries; the running install was left untouched."
+      exit 1
+    fi
+    mkdir -p linkhub-stage
+    tar xzf "${tarball}" -C linkhub-stage
+    msg_ok "Downloaded ${APP} ${RELEASE}"
+
     msg_info "Stopping ${APP}"
     rc-service linkhub stop
     msg_ok "Stopped ${APP}"
 
     msg_info "Updating ${APP} to ${RELEASE}"
-    cd /tmp
-    curl -fsSL "https://github.com/dwightsabeast/linkhub/releases/download/${RELEASE}/linkhub-linux-amd64.tar.gz" -o linkhub.tar.gz
-    tar xzf linkhub.tar.gz
-    mv linkhub /opt/linkhub/linkhub
-    mv linkhub-hash /opt/linkhub/linkhub-hash
-    cp -r static/* /opt/linkhub/static/
+    mv linkhub-stage/linkhub /opt/linkhub/linkhub
+    mv linkhub-stage/linkhub-hash /opt/linkhub/linkhub-hash
+    cp -r linkhub-stage/static/* /opt/linkhub/static/
     chmod 755 /opt/linkhub/linkhub /opt/linkhub/linkhub-hash
     echo "${RELEASE}" >/opt/linkhub/.version
-    rm -rf /tmp/linkhub.tar.gz /tmp/static /tmp/config.default.json
+    rm -rf "/tmp/${tarball}" "/tmp/${tarball}.sha256" /tmp/linkhub-stage
     msg_ok "Updated ${APP} to ${RELEASE}"
 
     msg_info "Starting ${APP}"
@@ -64,3 +92,5 @@ echo -e "${CREATING}${GN}${APP} setup has been successfully initialized!${CL}"
 echo -e "${INFO}${YW} Access it using the following IP:${CL}"
 echo -e "${TAB}${GATEWAY}${BGN}http://${IP}:8080${CL}"
 echo -e "${TAB}${GATEWAY}${BGN}http://${IP}:8080/admin${CL}"
+echo -e "${INFO}${YW} The admin login was set during install. If a password was"
+echo -e "${TAB}auto-generated, it's printed above and saved to /root/linkhub.creds.${CL}"
