@@ -295,6 +295,16 @@
       fontBody:        document.getElementById("font-body"),
       fontMono:        document.getElementById("font-mono"),
 
+      // Privacy & tracking
+      privacyOperator:    document.getElementById("privacy-operator"),
+      privacyContact:     document.getElementById("privacy-contact"),
+      privacySnippetCat:  document.getElementById("privacy-snippet-category"),
+      privacySnippetDesc: document.getElementById("privacy-snippet-description"),
+      privacyFontSource:  document.getElementById("privacy-font-source"),
+      privacyRetention:   document.getElementById("privacy-retention"),
+      privacyEffective:   document.getElementById("privacy-effective"),
+      privacyStatus:      document.getElementById("privacy-status"),
+
       // Banner
       bannerEnabled:        document.getElementById("banner-enabled"),
       bannerText:           document.getElementById("banner-text"),
@@ -637,6 +647,30 @@
     bindFlatField(dom.footerText,       "footer.text");
     bindFlatField(dom.footerShowYear,   "footer.showYear");
 
+    // Privacy & tracking. The two selects redraw the status line
+    // underneath, which explains in plain words what the current
+    // combination means for a visitor.
+    bindFlatField(dom.privacyOperator,    "privacy.operator");
+    bindFlatField(dom.privacyContact,     "privacy.contact");
+    bindFlatField(dom.privacySnippetDesc, "privacy.snippetDescription");
+    bindFlatField(dom.privacyRetention,   "privacy.retention");
+    bindFlatField(dom.privacyEffective,   "privacy.effective");
+    for (const [el, key] of [
+      [dom.privacySnippetCat, "snippetCategory"],
+      [dom.privacyFontSource, "fontSource"],
+    ]) {
+      el.addEventListener("change", () => {
+        state.cfg.privacy[key] = el.value;
+        renderPrivacyStatus();
+        onFormChange();
+      });
+    }
+    // The status line also depends on whether a snippet exists at all
+    // and whether a contact is set, so refresh it as those are typed.
+    // bindFlatField already wrote the value by the time this fires.
+    dom.metaHeadSnippet.addEventListener("input", renderPrivacyStatus);
+    dom.privacyContact.addEventListener("input", renderPrivacyStatus);
+
     // Banner
     bindFlatField(dom.bannerEnabled, "banner.enabled");
     bindFlatField(dom.bannerText,    "banner.text");
@@ -783,6 +817,13 @@
       "banner.text":       dom.bannerText,
       "banner.background": dom.bannerBg,
       "banner.textColor":  dom.bannerTextColor,
+      "privacy.operator":           dom.privacyOperator,
+      "privacy.contact":            dom.privacyContact,
+      "privacy.snippetDescription": dom.privacySnippetDesc,
+      "privacy.snippetCategory":    dom.privacySnippetCat,
+      "privacy.fontSource":         dom.privacyFontSource,
+      "privacy.retention":          dom.privacyRetention,
+      "privacy.effective":          dom.privacyEffective,
     };
     if (flat[path]) {
       flat[path].focus();
@@ -930,6 +971,7 @@
     renderSocials();
     renderFooter();
     renderBanner();
+    renderPrivacy();
     renderConfigOutput();
     updateDirtyIndicator();
   }
@@ -971,6 +1013,75 @@
   function renderFooter() {
     dom.footerShowYear.checked = !!state.cfg.footer.showYear;
     dom.footerText.value = state.cfg.footer.text || "";
+  }
+
+  function renderPrivacy() {
+    const p = state.cfg.privacy || {};
+    dom.privacyOperator.value    = p.operator    || "";
+    dom.privacyContact.value     = p.contact     || "";
+    dom.privacySnippetDesc.value = p.snippetDescription || "";
+    dom.privacyRetention.value   = p.retention   || "";
+    dom.privacyEffective.value   = p.effective   || "";
+    dom.privacySnippetCat.value  = p.snippetCategory || "analytics";
+    dom.privacyFontSource.value  = p.fontSource  || "google";
+    renderPrivacyStatus();
+  }
+
+  // renderPrivacyStatus spells out what the current settings mean for
+  // a visitor. The rules live on the server, but an operator changing
+  // a dropdown shouldn't have to reason about them — three lines of
+  // plain English here beats a paragraph in the README nobody reads.
+  function renderPrivacyStatus() {
+    const p = state.cfg.privacy || {};
+    const hasSnippet = !!(state.cfg.meta.headSnippet || "").trim();
+    const cat = hasSnippet ? (p.snippetCategory || "analytics") : "none";
+    const google = p.fontSource !== "system";
+    const lines = [];
+
+    // Never interpolate a config value into innerHTML — config.json is
+    // hand-editable, and the validator only runs on save. Fixed labels.
+    if (cat === "analytics" || cat === "advertising") {
+      const label = cat === "advertising" ? "advertising" : "analytics";
+      lines.push(
+        `Your snippet is classified as <strong>${label}</strong>, so it is ` +
+        `withheld from visitors who send a Global Privacy Control signal ` +
+        `or use the opt-out on /privacy.`
+      );
+    } else if (cat === "essential") {
+      lines.push(
+        "Your snippet is classified as <strong>essential</strong>, so it " +
+        "loads for every visitor including those who opt out. Only use " +
+        "this if the site genuinely breaks without it."
+      );
+    } else if (hasSnippet) {
+      lines.push(
+        "Your snippet is classified as <strong>doing no tracking</strong>, " +
+        "so it loads for everyone and the privacy notice won't mention it."
+      );
+    }
+
+    lines.push(
+      google
+        ? "Fonts load from Google, which discloses each visitor's IP address " +
+          "to Google &mdash; except for visitors who have opted out."
+        : "Fonts load from the visitor's own device. The public page makes " +
+          "no third-party requests."
+    );
+
+    if (cat === "advertising") {
+      lines.push(
+        "Because this counts as selling or sharing personal information, " +
+        "your footer link reads <strong>&ldquo;Your Privacy Choices&rdquo;</strong>."
+      );
+    }
+    if (!(p.contact || "").trim()) {
+      lines.push(
+        "<strong>No privacy contact set.</strong> Every state privacy law " +
+        "expects a way to reach you about a request."
+      );
+    }
+
+    dom.privacyStatus.innerHTML = lines.map((l) => `<span>${l}</span>`).join("<br />");
   }
 
   function renderBanner() {
@@ -1221,6 +1332,12 @@
     if (!c.banner.background) c.banner.background = "#3D5A4C";
     if (!c.banner.textColor)  c.banner.textColor  = "#FFFFFF";
     if (!c.banner.speed)      c.banner.speed = 6;
+    // Privacy. Mirrors applyDefaults() in internal/config: an
+    // unclassified snippet is treated as analytics so it gets withheld
+    // from opted-out visitors rather than firing at them.
+    c.privacy = c.privacy || {};
+    if (!c.privacy.snippetCategory) c.privacy.snippetCategory = "analytics";
+    if (!c.privacy.fontSource)      c.privacy.fontSource = "google";
     return c;
   }
 

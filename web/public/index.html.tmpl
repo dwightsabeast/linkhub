@@ -24,9 +24,16 @@
 {{- end}}
 <link rel="icon" href="{{if .Meta.Favicon}}{{.Meta.Favicon}}{{else}}/static/favicon.svg{{end}}" />
 <link rel="stylesheet" href="/static/styles.css" />
+{{- /* Web fonts are a third-party request: fetching them hands the
+       visitor's IP and User-Agent to Google. The handler decides
+       whether that's allowed (operator setting + this visitor's
+       opt-out state) and we render nothing when it isn't — the CSS
+       stacks in styles.css already name local fallbacks. */ -}}
+{{- if .UseWebFonts}}
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="{{googleFontsURL .}}" />
+<link rel="stylesheet" href="{{.FontsURL}}" />
+{{- end}}
 <style>
 :root {
   --avatar-size: {{.Profile.AvatarSize}}px;
@@ -47,7 +54,11 @@
 <meta property="og:description" content="{{.Meta.Description}}" />
 {{- end}}
 <meta property="og:type" content="website" />
-{{- if .Meta.HeadSnippet}}
+{{- /* Operator-supplied <head> HTML. The handler blanks this for a
+       visitor who has opted out (via Sec-GPC, DNT, or the site's own
+       control) whenever it's classified as analytics or advertising,
+       so test the rendered value, not the raw config field. */ -}}
+{{- if .RawHeadSnippet}}
 {{.RawHeadSnippet}}
 {{- end}}
 </head>
@@ -125,13 +136,26 @@
          Year is rendered server-side from .Now (passed by handler). */ -}}
   {{- $showYear := .Footer.ShowYear}}
   {{- $text := .Footer.Text}}
-  {{- if or $showYear $text}}
+  {{- /* The footer always renders now: even with no copyright line and
+         no custom text it carries the privacy notice link, which has to
+         be reachable from the page that does the collecting. */ -}}
   <footer class="footer">
-    {{- if $showYear}}&copy; {{.Year}}{{end}}
-    {{- if and $showYear $text}} &middot; {{end}}
-    {{- if $text}}{{$text}}{{end}}
+    {{- if or $showYear $text}}
+    <p class="footer-line">
+      {{- if $showYear}}&copy; {{.Year}}{{end}}
+      {{- if and $showYear $text}} &middot; {{end}}
+      {{- if $text}}{{$text}}{{end}}
+    </p>
+    {{- end}}
+    <p class="footer-privacy">
+      <a class="privacy-link" href="/privacy">
+        {{- if .ShowOptOutIcon}}
+        <span class="privacy-link-icon" aria-hidden="true">{{iconSVG "privacy-choices"}}</span>
+        {{- end}}
+        <span>{{.PrivacyLinkLabel}}</span>
+      </a>
+    </p>
   </footer>
-  {{- end}}
 </main>
 </body>
 </html>

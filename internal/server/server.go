@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/dwightsabeast/linkhub/internal/auth"
 	"github.com/dwightsabeast/linkhub/internal/config"
@@ -29,6 +30,13 @@ type Options struct {
 type Server struct {
 	opts Options
 	tpl  *template.Template
+	// privacyTpl renders /privacy. Kept separate from tpl because the
+	// two pages take different payloads.
+	privacyTpl *template.Template
+	// startDate is the process start in YYYY-MM-DD form. Used as the
+	// lastUpdate fallback in /.well-known/gpc.json when the operator
+	// hasn't set a privacy effective date.
+	startDate string
 }
 
 // New parses templates and returns a ready-to-serve Server.
@@ -36,14 +44,29 @@ func New(opts Options) (*Server, error) {
 	tplPath := filepath.Join(opts.StaticDir, "index.html.tmpl")
 	tpl, err := template.New("index.html.tmpl").
 		Funcs(template.FuncMap{
-			"iconSVG":        iconSVG,
-			"googleFontsURL": googleFontsURL,
+			"iconSVG": iconSVG,
 		}).
 		ParseFiles(tplPath)
 	if err != nil {
 		return nil, err
 	}
-	return &Server{opts: opts, tpl: tpl}, nil
+
+	privacyPath := filepath.Join(opts.StaticDir, "privacy.html.tmpl")
+	privacyTpl, err := template.New("privacy.html.tmpl").
+		Funcs(template.FuncMap{
+			"iconSVG": iconSVG,
+		}).
+		ParseFiles(privacyPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Server{
+		opts:       opts,
+		tpl:        tpl,
+		privacyTpl: privacyTpl,
+		startDate:  time.Now().Format("2006-01-02"),
+	}, nil
 }
 
 // Handler returns the configured router as an http.Handler.
@@ -53,6 +76,16 @@ func (s *Server) Handler() http.Handler {
 	// Public surface (no auth).
 	mux.HandleFunc("GET /{$}", s.handleIndex)
 	mux.HandleFunc("GET /healthz", s.handleHealth)
+
+	// Privacy notice and the opt-out control it hosts. Both are public
+	// by definition — a visitor must be able to read the notice and
+	// exercise the opt-out without any account.
+	mux.HandleFunc("GET /privacy", s.handlePrivacy)
+	mux.HandleFunc("POST /privacy/choices", s.handlePrivacyChoices)
+
+	// Machine-readable declaration that this site honors Global
+	// Privacy Control. Part of the GPC spec.
+	mux.HandleFunc("GET /.well-known/gpc.json", s.handleGPCWellKnown)
 
 	// Form-auth sign-in / sign-out. These must be reachable without a
 	// session, so they live on the public mux rather than behind the
@@ -116,11 +149,17 @@ var fontFamilyParam = map[string]string{
 }
 
 // googleFontsURL builds the stylesheet URL for the three configured
-// font roles. Called from the public page template.
-func googleFontsURL(data indexData) template.URL {
-	display := fontFamilyParam[data.Theme.FontDisplay]
-	body := fontFamilyParam[data.Theme.FontBody]
-	mono := fontFamilyParam[data.Theme.FontMono]
+// font roles.
+//
+// Called from handleIndex rather than from the template: whether we
+// contact Google at all is a privacy decision (it discloses the
+// visitor's IP and User-Agent to a third party), and that decision
+// belongs with the handler that knows the visitor's opt-out state.
+// The template only renders the URL it is handed.
+func googleFontsURL(displayFont, bodyFont, monoFont string) template.URL {
+	display := fontFamilyParam[displayFont]
+	body := fontFamilyParam[bodyFont]
+	mono := fontFamilyParam[monoFont]
 
 	if display == "" {
 		display = fontFamilyParam["Fraunces"]

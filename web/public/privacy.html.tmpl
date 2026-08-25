@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+{{- /*
+  privacy.html.tmpl — the public privacy notice, server-rendered.
+
+  Receives privacyData from internal/server/privacy.go. Like the
+  profile page it carries no JavaScript: the opt-out control is a
+  plain form POST, so it works with scripting disabled and cannot
+  itself become a tracking surface.
+
+  This page deliberately does NOT load web fonts, even when the
+  profile page is configured to. Reading a privacy notice — and using
+  the opt-out on it — should never cost you a request to a third
+  party. The system font stacks in styles.css cover it.
+
+  Everything factual here is generated from live config, so the
+  notice describes what the site actually loads rather than
+  boilerplate that drifts out of date as settings change.
+*/ -}}
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Privacy Notice{{if .Meta.Title}} &middot; {{.Meta.Title}}{{end}}</title>
+<meta name="description" content="How this site handles your information, and how to opt out of non-essential tracking." />
+<link rel="icon" href="{{if .Meta.Favicon}}{{.Meta.Favicon}}{{else}}/static/favicon.svg{{end}}" />
+<link rel="stylesheet" href="/static/styles.css" />
+<style>
+  /* System stacks only — see the note at the top of this file. */
+  :root {
+    --font-display: "Iowan Old Style", Palatino, Georgia, serif;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+</style>
+</head>
+<body>
+<main class="page page-prose">
+
+  <nav class="prose-back">
+    <a href="/">&larr; {{if .Profile.Name}}{{.Profile.Name}}{{else}}Back{{end}}</a>
+  </nav>
+
+  <header class="prose-head">
+    <h1 class="prose-title">Privacy Notice</h1>
+    <p class="prose-sub">
+      {{- if .HasOperator}}For the site operated by {{.Privacy.Operator}}.{{else}}For this site.{{end}}
+      {{- if .Privacy.Effective}} Effective {{.Privacy.Effective}}.{{end}}
+    </p>
+  </header>
+
+  {{- /* ── The actionable part, first. ────────────────────────── */ -}}
+  <section class="privacy-choices" id="choices">
+    <h2 class="prose-h2">Your Privacy Choices</h2>
+
+    {{- if eq .Saved "out"}}
+    <p class="privacy-flash" role="status">Saved. Non-essential tracking is off for this browser.</p>
+    {{- else if eq .Saved "in"}}
+    <p class="privacy-flash" role="status">Saved. Non-essential tracking is allowed for this browser.</p>
+    {{- end}}
+
+    {{- if not .HasNonEssential}}
+    <p>
+      This site does not run analytics or advertising, and makes no
+      third-party requests for them, so there is nothing here to turn
+      off. The cookies it can set are listed below.
+    </p>
+
+    {{- else if .GPCActive}}
+    <p class="privacy-state privacy-state-out">
+      <strong>Your browser is sending a Global Privacy Control signal, and we have applied it.</strong>
+      Non-essential tracking is switched off for this visit. You do not
+      need to do anything else, and we will not ask you to confirm it.
+    </p>
+    {{- template "optOutForm" .}}
+
+    {{- else if .DNTActive}}
+    <p class="privacy-state privacy-state-out">
+      <strong>Your browser is sending a Do Not Track header, and we have applied it.</strong>
+      Non-essential tracking is switched off for this visit.
+    </p>
+    {{- template "optOutForm" .}}
+
+    {{- else}}
+    <p class="privacy-state{{if .OptedOut}} privacy-state-out{{else}} privacy-state-in{{end}}">
+      {{- if .OptedOut}}
+      <strong>Non-essential tracking is currently off</strong> for this browser, because you asked for it to be.
+      {{- else}}
+      <strong>Non-essential tracking is currently on</strong> for this browser. You can turn it off below.
+      {{- end}}
+    </p>
+    {{- template "optOutForm" .}}
+    {{- end}}
+
+    {{- if .HasNonEssential}}
+    <p class="prose-small">
+      Your choice is remembered in a cookie on this browser for one
+      year. It is not tied to an account and does not identify you, so
+      clearing your cookies or switching browsers or devices will reset
+      it. Opting out never changes what you can see or do on this site.
+    </p>
+    {{- end}}
+  </section>
+
+  {{- /* ── Disclosures. ───────────────────────────────────────── */ -}}
+  <h2 class="prose-h2">What this site collects</h2>
+  <p>
+    This is a personal links page. There is no account to create, no
+    form to fill in, and nothing here asks you for your name, address,
+    payment details, or any other personal information.
+  </p>
+  <p>
+    The software serving this page keeps a short technical log of each
+    request &mdash; the method, the path requested, the response status,
+    and the number of bytes sent. That log does not include your IP
+    address. The web server, reverse proxy, or tunnel provider sitting
+    in front of this site may keep its own logs, which typically do
+    record IP addresses, and those are outside this application.
+  </p>
+  {{- if .SaleOrShare}}
+  <p>
+    Because this site loads an advertising component (described below),
+    information about your visit may be disclosed to that provider in a
+    way that counts as &ldquo;selling&rdquo; or &ldquo;sharing&rdquo;
+    personal information under California law, and as
+    &ldquo;targeted advertising&rdquo; under other state laws. Use the
+    control above to opt out.
+  </p>
+  {{- end}}
+
+  <h2 class="prose-h2">Cookies</h2>
+  <p>
+    The site itself sets these two cookies, and no others. Neither is used
+    for advertising.
+  </p>
+  <div class="prose-table-wrap">
+    <table class="prose-table">
+      <thead>
+        <tr><th>Name</th><th>Purpose</th><th>Lifetime</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>linkhub_privacy_optout</code></td>
+          <td>Remembers the privacy choice you make above. Set only once you use that control.</td>
+          <td>1 year</td>
+        </tr>
+        <tr>
+          <td><code>linkhub_session</code></td>
+          <td>Signs the site owner in to the private admin page. Set only after a successful login at <code>/login</code> &mdash; visitors browsing this site never receive it.</td>
+          <td>12 hours</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="prose-small">
+    Both are strictly necessary: one exists only to honor your own
+    choice, the other only to keep the owner signed in. Neither is
+    shared with anyone.
+    {{- if ne .SnippetCategory "none"}}
+    A third-party component is also loaded on the profile page (see
+    below) and may set cookies of its own, under its provider&rsquo;s
+    control rather than ours.
+    {{- end}}
+  </p>
+
+  <h2 class="prose-h2">Who else receives data</h2>
+  {{- if .GoogleFontsConfigured}}
+  <p>
+    <strong>Google Fonts.</strong> The profile page loads its typefaces
+    from Google&rsquo;s font servers. Making that request discloses your
+    IP address and browser user-agent string to Google. It sets no
+    cookies.
+    {{- if .GoogleFontsActive}}
+    This request is active for you right now; opting out above stops it,
+    and the page falls back to fonts already on your device.
+    {{- else}}
+    Because you have opted out, this request is not being made &mdash;
+    the page is using fonts already on your device instead.
+    {{- end}}
+  </p>
+  {{- end}}
+
+  {{- if eq .SnippetCategory "analytics"}}
+  <p>
+    <strong>{{if .Privacy.SnippetDescription}}{{.Privacy.SnippetDescription}}{{else}}An analytics component{{end}}.</strong>
+    The profile page loads this to measure traffic.
+    {{- if .SnippetSuppressed}}
+    Because you have opted out, it is not being loaded for you.
+    {{- else}}
+    It is active for you right now; opting out above stops it from loading.
+    {{- end}}
+  </p>
+  {{- else if eq .SnippetCategory "advertising"}}
+  <p>
+    <strong>{{if .Privacy.SnippetDescription}}{{.Privacy.SnippetDescription}}{{else}}An advertising component{{end}}.</strong>
+    The profile page loads this for advertising or audience-measurement
+    purposes, and it may receive information about your visit.
+    {{- if .SnippetSuppressed}}
+    Because you have opted out, it is not being loaded for you.
+    {{- else}}
+    It is active for you right now; opting out above stops it from loading.
+    {{- end}}
+  </p>
+  {{- else if eq .SnippetCategory "essential"}}
+  <p>
+    <strong>{{if .Privacy.SnippetDescription}}{{.Privacy.SnippetDescription}}{{else}}A required component{{end}}.</strong>
+    The profile page loads this because the site needs it to function.
+    It is not used for analytics or advertising, and it is not affected
+    by the opt-out above.
+  </p>
+  {{- end}}
+
+  {{- if and (not .GoogleFontsConfigured) (eq .SnippetCategory "none")}}
+  <p>
+    Nobody. This site makes no third-party requests: everything the page
+    needs is served from this server.
+  </p>
+  {{- end}}
+
+  <p>
+    The links on the profile page point to other websites. Following one
+    takes you to a service with its own privacy practices, which this
+    notice does not cover.
+  </p>
+
+  <h2 class="prose-h2">How long information is kept</h2>
+  <p>
+    {{- if .Privacy.Retention}}
+    {{.Privacy.Retention}}
+    {{- else}}
+    Request logs are kept only as long as they are useful for operating
+    and debugging the site, and are not used to build any profile of
+    you. No visitor database exists, because no visitor information is
+    collected into one.
+    {{- end}}
+  </p>
+
+  <h2 class="prose-h2">Your rights</h2>
+  <p>
+    Depending on where you live, state law may give you the right to
+    know what personal information a business has collected about you,
+    to get a copy of it, to correct it, to have it deleted, and to opt
+    out of its sale, sharing, or use for targeted advertising. You also
+    have the right not to be treated differently for exercising any of
+    these rights &mdash; and nothing on this site changes based on the
+    choice you make above.
+  </p>
+  <p>
+    In practice there is very little to request here: this site holds no
+    account for you and builds no profile of you. The opt-out control
+    above is the meaningful one, and it takes effect immediately.
+  </p>
+  {{- if .HasContact}}
+  <p>
+    To make a request, or to ask anything about this notice, contact
+    <a class="prose-link" href="{{.ContactHref}}">{{.Privacy.Contact}}</a>.
+    You may also have someone act on your behalf; we may need to confirm
+    with you before acting on such a request.
+  </p>
+  {{- else}}
+  <p class="privacy-warn">
+    The operator of this site has not published a contact address for
+    privacy requests yet. Until they do, requests can be made through
+    any contact channel listed on the main page.
+  </p>
+  {{- end}}
+
+  <h2 class="prose-h2">Global Privacy Control</h2>
+  <p>
+    This site recognizes and honors the
+    <a class="prose-link" href="https://globalprivacycontrol.org/" rel="noopener noreferrer">Global Privacy Control</a>
+    signal. If your browser or an extension sends
+    <code>Sec-GPC: 1</code>, we treat it as a valid opt-out on every
+    request, automatically, without asking you to confirm and without
+    showing you a banner. We honor the older <code>DNT: 1</code> header
+    the same way.
+  </p>
+  <p class="prose-small">
+    Twelve states &mdash; California, Colorado, Connecticut, Delaware,
+    Maryland, Minnesota, Montana, Nebraska, New Hampshire, New Jersey,
+    Oregon, and Texas &mdash; require sites to recognize a universal
+    opt-out signal of this kind. Our machine-readable declaration is at
+    <a class="prose-link" href="/.well-known/gpc.json"><code>/.well-known/gpc.json</code></a>.
+  </p>
+
+  <h2 class="prose-h2">Changes to this notice</h2>
+  <p>
+    This notice is generated from the site&rsquo;s live configuration,
+    so it reflects what the site loads at the moment you read it. If the
+    operator turns tracking on or off, this page changes with it.
+  </p>
+
+  <footer class="footer prose-foot">
+    <p class="footer-line">
+      {{- if .Footer.ShowYear}}&copy; {{.Year}}{{end}}
+      {{- if and .Footer.ShowYear .Footer.Text}} &middot; {{end}}
+      {{- if .Footer.Text}}{{.Footer.Text}}{{end}}
+    </p>
+    <p class="footer-privacy"><a class="privacy-link" href="/">Back to the profile</a></p>
+  </footer>
+
+</main>
+</body>
+</html>
+
+{{- /* ── The opt-out control itself. ──────────────────────────────
+       Two submit buttons in one form, distinguished by value. No
+       JavaScript, no fetch, no client-side state: the server reads
+       the posted value, writes the cookie, and redirects back here.
+       Rendered as a named template because three branches above use
+       it and they must stay identical. */ -}}
+{{- define "optOutForm"}}
+<form class="privacy-form" method="post" action="/privacy/choices">
+  <button class="privacy-btn privacy-btn-out{{if .OptedOut}} is-current{{end}}"
+          type="submit" name="choice" value="optout">
+    Opt out of non-essential tracking
+  </button>
+  <button class="privacy-btn privacy-btn-in{{if not .OptedOut}} is-current{{end}}"
+          type="submit" name="choice" value="allow">
+    Allow non-essential tracking
+  </button>
+</form>
+{{- if .GPCActive}}
+<p class="prose-small">
+  While your browser keeps sending the Global Privacy Control signal it
+  overrides whichever button you press &mdash; the signal is the
+  stronger instruction and we treat it that way. What you choose here is
+  still recorded, and takes over if you later turn the signal off.
+</p>
+{{- else if .DNTActive}}
+<p class="prose-small">
+  While your browser keeps sending the Do Not Track header it overrides
+  whichever button you press. What you choose here is still recorded,
+  and takes over if you later turn the header off.
+</p>
+{{- end}}
+{{- end}}

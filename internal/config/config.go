@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 	"unicode/utf8"
 )
 
@@ -82,6 +83,67 @@ type Banner struct {
 	Speed      int    `json:"speed,omitempty"` // 1 (slow) … 10 (fast)
 }
 
+// Privacy carries the operator-supplied facts the /privacy notice is
+// generated from, plus the two switches that decide what the public
+// page is allowed to load.
+//
+// US state privacy law is a notice-and-opt-out regime, not the EU's
+// opt-in one: none of the comprehensive state laws requires a consent
+// banner before non-essential cookies load. What twelve of them *do*
+// require is that a site detect and honor a universal opt-out signal
+// (Global Privacy Control) automatically. That detection is
+// unconditional in LinkHub — see internal/server/privacy.go — so
+// there is deliberately no "honorGPC" switch here to turn it off.
+type Privacy struct {
+	// Operator is who runs the site — the "we" of the privacy notice.
+	// Empty renders the notice in an impersonal voice.
+	Operator string `json:"operator,omitempty"`
+
+	// Contact is where privacy-rights requests go: an email address or
+	// an https URL. Empty means the notice says so plainly rather than
+	// inventing a channel that doesn't exist.
+	Contact string `json:"contact,omitempty"`
+
+	// SnippetCategory classifies what meta.headSnippet actually is, so
+	// the opt-out machinery knows whether suppressing it is correct and
+	// the notice can describe it honestly. One of:
+	//
+	//   none         — the snippet does no tracking (or there is none)
+	//   essential    — strictly necessary; never suppressed
+	//   analytics    — measurement; suppressed on opt-out
+	//   advertising  — targeted ads / sale-or-share; suppressed on opt-out
+	//
+	// Defaults to "analytics" when unset. That's the fail-safe reading:
+	// an unclassified snippet gets suppressed for opted-out visitors
+	// rather than quietly firing. An operator whose snippet is genuinely
+	// benign has to say so explicitly.
+	SnippetCategory string `json:"snippetCategory,omitempty"`
+
+	// SnippetDescription names what the snippet actually is and who
+	// receives the data — "Plausible Analytics, self-hosted" or
+	// "Meta Pixel". The notice can't introspect arbitrary HTML, and
+	// "categories of third parties" is a required disclosure in every
+	// state, so without this the notice can only say that *something*
+	// third-party is loaded. Empty falls back to that vaguer wording.
+	SnippetDescription string `json:"snippetDescription,omitempty"`
+
+	// FontSource decides where the public page's typefaces come from.
+	// "google" fetches from fonts.googleapis.com, which discloses every
+	// visitor's IP address and User-Agent to Google; "system" uses the
+	// local font stack and makes no third-party request at all. Google
+	// is the default (it's the existing behavior) but it is always
+	// downgraded to "system" for an opted-out visitor.
+	FontSource string `json:"fontSource,omitempty"`
+
+	// Retention describes how long request logs and config data are
+	// kept. Free text — the operator knows their own backup policy.
+	Retention string `json:"retention,omitempty"`
+
+	// Effective is the notice's effective date, YYYY-MM-DD. Empty
+	// suppresses the dateline.
+	Effective string `json:"effective,omitempty"`
+}
+
 // Config is the full document at /var/lib/linkhub/config.json.
 type Config struct {
 	Profile Profile  `json:"profile"`
@@ -91,6 +153,55 @@ type Config struct {
 	Social  []Social `json:"social"`
 	Footer  Footer   `json:"footer"`
 	Banner  Banner   `json:"banner"`
+	Privacy Privacy  `json:"privacy"`
+}
+
+// Snippet category tokens. Kept as constants because both the
+// validator and the server's suppression logic switch on them.
+const (
+	SnippetNone        = "none"
+	SnippetEssential   = "essential"
+	SnippetAnalytics   = "analytics"
+	SnippetAdvertising = "advertising"
+)
+
+// Font source tokens.
+const (
+	FontSourceGoogle = "google"
+	FontSourceSystem = "system"
+)
+
+// EffectiveSnippetCategory reports how the head snippet should be
+// treated. An empty snippet is always "none" no matter what the
+// operator selected, so the notice never describes a tracker that
+// isn't actually on the page.
+func (c *Config) EffectiveSnippetCategory() string {
+	if strings.TrimSpace(c.Meta.HeadSnippet) == "" {
+		return SnippetNone
+	}
+	if c.Privacy.SnippetCategory == "" {
+		return SnippetAnalytics
+	}
+	return c.Privacy.SnippetCategory
+}
+
+// SnippetIsSuppressible reports whether the head snippet must be held
+// back from a visitor who has opted out (via GPC or the site's own
+// opt-out). Essential snippets and absent ones always render.
+func (c *Config) SnippetIsSuppressible() bool {
+	switch c.EffectiveSnippetCategory() {
+	case SnippetAnalytics, SnippetAdvertising:
+		return true
+	}
+	return false
+}
+
+// SellsOrShares reports whether the configured tracking amounts to
+// the "sale/sharing" or "targeted advertising" that triggers the
+// dedicated opt-out link obligations in California and the other
+// opt-out states.
+func (c *Config) SellsOrShares() bool {
+	return c.EffectiveSnippetCategory() == SnippetAdvertising
 }
 
 // Length budgets from README → CONTENT FUNDAMENTALS. Enforced on save.
@@ -108,6 +219,10 @@ const (
 	maxMetaTitle       = 100
 	maxMetaDescription = 200
 	maxBannerText      = 120
+	maxPrivacyOperator = 80
+	maxPrivacyContact  = 120
+	maxPrivacyReten    = 300
+	maxPrivacySnipDesc = 160
 )
 
 // Store is the runtime cache of Config plus its on-disk path.
@@ -280,6 +395,15 @@ func applyDefaults(c *Config) {
 	if c.Banner.Speed == 0 {
 		c.Banner.Speed = 6
 	}
+	// Fail-safe: an unclassified snippet is treated as analytics, so an
+	// upgrade from a pre-privacy config suppresses it on opt-out rather
+	// than firing it at a visitor who asked us not to.
+	if c.Privacy.SnippetCategory == "" {
+		c.Privacy.SnippetCategory = SnippetAnalytics
+	}
+	if c.Privacy.FontSource == "" {
+		c.Privacy.FontSource = FontSourceGoogle
+	}
 	if c.Links == nil {
 		c.Links = []Link{}
 	}
@@ -385,7 +509,44 @@ func Validate(c *Config) error {
 	if c.Banner.Speed < 1 || c.Banner.Speed > 10 {
 		return &ValidationError{Field: "banner.speed", Message: "must be between 1 and 10"}
 	}
-	
+
+	// Privacy. Every field is optional — an empty category or font
+	// source means "use the default", which applyDefaults fills in on
+	// the next load. We validate the tokens only when they're present.
+	if err := checkLen("privacy.operator", c.Privacy.Operator, 0, maxPrivacyOperator); err != nil {
+		return err
+	}
+	if err := checkLen("privacy.contact", c.Privacy.Contact, 0, maxPrivacyContact); err != nil {
+		return err
+	}
+	if err := checkLen("privacy.retention", c.Privacy.Retention, 0, maxPrivacyReten); err != nil {
+		return err
+	}
+	if err := checkLen("privacy.snippetDescription", c.Privacy.SnippetDescription, 0, maxPrivacySnipDesc); err != nil {
+		return err
+	}
+	if err := checkPrivacyContact("privacy.contact", c.Privacy.Contact); err != nil {
+		return err
+	}
+	switch c.Privacy.SnippetCategory {
+	case "", SnippetNone, SnippetEssential, SnippetAnalytics, SnippetAdvertising:
+	default:
+		return &ValidationError{
+			Field:   "privacy.snippetCategory",
+			Message: "must be none, essential, analytics, or advertising",
+		}
+	}
+	switch c.Privacy.FontSource {
+	case "", FontSourceGoogle, FontSourceSystem:
+	default:
+		return &ValidationError{Field: "privacy.fontSource", Message: "must be google or system"}
+	}
+	if c.Privacy.Effective != "" {
+		if _, err := time.Parse("2006-01-02", c.Privacy.Effective); err != nil {
+			return &ValidationError{Field: "privacy.effective", Message: "must be a date in YYYY-MM-DD form"}
+		}
+	}
+
 	featured := 0
 	for i, l := range c.Links {
 		base := fmt.Sprintf("links[%d]", i)
@@ -471,6 +632,47 @@ func checkURL(field, raw string) error {
 		return &ValidationError{Field: field, Message: "scheme must be http(s), mailto, or tel"}
 	}
 	return nil
+}
+
+// checkPrivacyContact accepts an empty contact, a bare email address,
+// a mailto: URL, or an http(s) URL. This is the address a consumer
+// uses to exercise a legal right, so a typo'd value is worse than a
+// blank one — we'd rather refuse than render a dead channel into the
+// notice. The email check is deliberately loose (one @, a dot in the
+// domain, no spaces): full RFC 5322 validation rejects real addresses
+// and buys nothing here.
+func checkPrivacyContact(field, raw string) error {
+	if raw == "" {
+		return nil
+	}
+	if strings.ContainsAny(raw, " \t\r\n") {
+		return &ValidationError{Field: field, Message: "must not contain spaces"}
+	}
+	if u, err := url.Parse(raw); err == nil {
+		switch strings.ToLower(u.Scheme) {
+		case "http", "https":
+			if u.Host == "" {
+				return &ValidationError{Field: field, Message: "is missing a host"}
+			}
+			return nil
+		case "mailto":
+			if u.Opaque == "" {
+				return &ValidationError{Field: field, Message: "is empty"}
+			}
+			return nil
+		}
+	}
+	at := strings.Index(raw, "@")
+	if at > 0 && at == strings.LastIndex(raw, "@") {
+		if domain := raw[at+1:]; strings.Contains(domain, ".") &&
+			!strings.HasPrefix(domain, ".") && !strings.HasSuffix(domain, ".") {
+			return nil
+		}
+	}
+	return &ValidationError{
+		Field:   field,
+		Message: "must be an email address or an http(s) URL",
+	}
 }
 
 // DecodeStrict reads a Config from r, rejecting unknown fields. Used

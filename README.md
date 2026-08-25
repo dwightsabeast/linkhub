@@ -150,6 +150,78 @@ A couple of behaviors worth knowing:
 - **Only one link can be featured.** The admin enforces this client-side and the server enforces it on save.
 - **Reload from server discards your unsaved edits.** If you have two tabs open, last save wins. Don't do that.
 
+## Privacy and tracking (US)
+
+LinkHub ships a privacy notice and a working opt-out, built for the way US
+state privacy law actually works. Twenty states now have comprehensive privacy
+laws in force, and **none of them requires an opt-in cookie banner** the way
+GDPR does. The US model is *notice plus opt-out*. What twelve of those states
+— California, Colorado, Connecticut, Delaware, Maryland, Minnesota, Montana,
+Nebraska, New Hampshire, New Jersey, Oregon, and Texas — *do* require is that
+your site detect and honor a universal opt-out signal automatically.
+
+So that's what the binary does.
+
+**Global Privacy Control is honored unconditionally.** Any request carrying
+`Sec-GPC: 1` is treated as an opt-out on the spot — no banner, no confirmation
+step, nothing for the visitor to click. The older `DNT: 1` header is honored the
+same way. There is deliberately **no setting to turn this off**: in a dozen
+states it isn't optional, and a switch for it would only ever be a footgun.
+The machine-readable declaration is published at `/.well-known/gpc.json`.
+
+**What "opted out" actually changes.** For that request the server:
+
+- omits your `<head>` snippet, if it's classified as analytics or advertising;
+- omits the Google Fonts `<link>` tags, so no request reaches Google;
+- serves the page from local font stacks instead.
+
+Suppression is server-side. Nothing gets rendered and then hidden, so there is
+no pre-consent window in which a pixel has already fired — which is the exact
+fact pattern behind the CIPA "pen register" suits (~4,000 filed in California
+by mid-2026, plus ~800 in Florida).
+
+**The notice.** `/privacy` is generated from live config, so it describes what
+your site actually loads rather than boilerplate that drifts. It's linked from
+the footer of every profile page, carries the opt-out control as a plain form
+POST (no JavaScript), and never loads web fonts itself — reading a privacy
+notice shouldn't cost you a third-party request.
+
+**Fill these in** under **Privacy & tracking** in the admin:
+
+| Field | Why it matters |
+| --- | --- |
+| Who runs this site | The "we" of the notice |
+| Privacy contact | Every state law expects a way to reach you about a request |
+| Snippet category | Decides whether your snippet is withheld on opt-out |
+| Name the tracker | "Categories of third parties" is a required disclosure |
+| Fonts | `system` removes the Google request for everyone |
+| Retention / effective date | Optional; the date also feeds `gpc.json` |
+
+An unclassified snippet is treated as **analytics** — the fail-safe reading, so
+an upgrade from an older config withholds it rather than firing it at someone
+who asked you not to. Classify it as `advertising` and the footer link changes
+to **"Your Privacy Choices"**, the phrase California expects from a site that
+sells or shares personal information.
+
+Cookies, in full — there are two, both strictly necessary, neither shared:
+
+| Cookie | Set when | Lifetime |
+| --- | --- | --- |
+| `linkhub_privacy_optout` | A visitor uses the opt-out control | 1 year |
+| `linkhub_session` | The owner signs in at `/login` (form auth only) | 12 hours |
+
+Two things this does **not** do. It doesn't make you compliant on its own —
+it gives you accurate notice, a real opt-out, and automatic GPC handling, but
+you still have to fill in who you are and describe what you've installed. And
+the notice text is generated, not lawyer-reviewed; read it once at `/privacy`
+before you rely on it. If you operate at a scale where a state AG might come
+asking, get it reviewed.
+
+The California Privacy Protection Agency publishes a registered opt-out icon.
+LinkHub renders its own toggle glyph rather than an approximation of that mark:
+the regulation requires the link *text*, and the icon is optional. If you want
+the official artwork, serve it from `/assets` and reference it yourself.
+
 ## Configuration reference
 
 Environment variables read at startup:
@@ -160,7 +232,25 @@ Environment variables read at startup:
 - `AUTH_MODE` — `trust_proxy`, `basic`, `form`, or `none`. The binary defaults to `trust_proxy` when unset; the installer writes `form` for new installs.
 - `BASIC_AUTH_USER` / `BASIC_AUTH_HASH` — required for `basic`; the initial credential (bootstrap) for `form`. Once you change a `form` login from the admin, `auth.json` in the data dir takes over and these are ignored. **Quote the hash with single quotes** in the env file — it contains `$`, which the shell would otherwise expand on load.
 
-Length budgets enforced by the server on save: name 32, tagline 60, bio 240, location 60, link label 36, link description 60, footer 80, meta title 100, meta description 200. Up to 12 primary links and 12 social pills.
+Length budgets enforced by the server on save: name 32, tagline 60, bio 240, location 60, link label 36, link description 60, footer 80, meta title 100, meta description 200. Up to 12 primary links and 12 social pills. Privacy fields: operator 80, contact 120, tracker name 160, retention 300.
+
+The `privacy` block in `config.json` — all fields optional, all editable from the admin:
+
+```json
+"privacy": {
+  "operator": "Your Studio",
+  "contact": "privacy@example.com",
+  "snippetCategory": "analytics",
+  "snippetDescription": "Plausible Analytics, self-hosted",
+  "fontSource": "google",
+  "retention": "",
+  "effective": "2026-08-25"
+}
+```
+
+`snippetCategory` is one of `none`, `essential`, `analytics`, `advertising` (empty is read as `analytics`). `fontSource` is `google` or `system`. `effective` is `YYYY-MM-DD`.
+
+**Upgrading.** The release tarball now includes `static/privacy.html.tmpl`, and the binary parses it at startup. If you upgrade by dropping in only the new binary, it will refuse to boot with a template-not-found error — replace the whole `static/` directory, which is what the install script does anyway.
 
 ## Building from source
 
@@ -200,8 +290,9 @@ Other useful targets: `make tidy`, `make fmt`, `make vet`, `make test`, `make cl
 │   ├── auth/                 auth middleware (three modes)
 │   ├── config/               config schema, atomic load/save, validation
 │   └── server/               router, handlers, icon SVG paths
+│       └── privacy.go        GPC/opt-out detection, /privacy, gpc.json
 ├── web/
-│   ├── public/               public profile template, styles, default avatar
+│   ├── public/               profile + privacy templates, styles, avatar
 │   └── admin/                admin shell HTML, CSS, JS
 ├── scripts/
 │   └── linkhub.sh            Proxmox VE installer

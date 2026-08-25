@@ -45,6 +45,7 @@ STATIC_DIST := $(DIST_DIR)/static
 PUBLIC_FILES := \
 	$(WEB_DIR)/public/favicon.svg \
 	$(WEB_DIR)/public/index.html.tmpl \
+	$(WEB_DIR)/public/privacy.html.tmpl \
 	$(WEB_DIR)/public/styles.css
 
 PUBLIC_ASSETS := \

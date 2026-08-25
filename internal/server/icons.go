@@ -14,6 +14,16 @@ var iconPaths = map[string]string{
 	// Mirrors ARROW_INNER from ui_kits/linkhub/Icon.jsx.
 	"arrow": `<line x1="7" y1="17" x2="17" y2="7"/><polyline points="9 7 17 7 17 15"/>`,
 
+	// Internal: the toggle glyph beside the "Your Privacy Choices"
+	// footer link. Drawn in LinkHub's own line style — it is
+	// deliberately *not* a reproduction of the opt-out icon registered
+	// by the California Privacy Protection Agency, which is a specific
+	// two-tone blue mark. California requires the link *text*; the
+	// registered icon is optional, and an approximation of it would be
+	// worse than none. Operators who want the official artwork can
+	// serve it from /assets and reference it themselves.
+	"privacy-choices": `<rect x="2" y="7" width="20" height="10" rx="5"/><circle cx="8" cy="12" r="2.5"/>`,
+
 	// ── Generic ─────────────────────────────────────────────────────
 	"link":          `<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>`,
 	"external-link": `<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>`,

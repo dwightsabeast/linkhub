@@ -131,6 +131,12 @@
         If serving through a reverse proxy or tunnel, make sure the tracker URL
         uses a publicly reachable hostname &mdash; not a LAN IP like 192.168.x.x.
       </p>
+      <p class="admin-hint">
+        <strong>If you paste anything here, classify it under Privacy &amp;
+        tracking below.</strong> That&rsquo;s what decides whether it&rsquo;s
+        withheld from visitors who opt out, and how the privacy notice
+        describes it.
+      </p>
       <div class="admin-row">
         <div>
           <label class="admin-label" for="theme-accent">Accent (light)</label>
@@ -203,6 +209,91 @@
           <p class="admin-hint">PNG, SVG, or ICO. Max 512 KB. 64&times;64 or larger.</p>
         </div>
       </div>
+    </section>
+
+    <!-- ============== Privacy & tracking =============== -->
+    <section class="admin-card admin-full">
+      <h2 class="admin-h2">Privacy &amp; tracking</h2>
+      <p class="admin-hint">
+        These fields generate the public privacy notice at
+        <a href="/privacy" target="_blank" rel="noopener">/privacy</a>, which is
+        linked from the footer of your profile page. The notice describes what
+        your site actually loads, so it stays accurate as you change settings
+        here.
+      </p>
+
+      <div class="admin-row">
+        <div>
+          <label class="admin-label" for="privacy-operator">Who runs this site</label>
+          <input id="privacy-operator" type="text" data-bind="privacy.operator"
+                 placeholder="Your name or business name" />
+          <p class="admin-hint">Appears as the &ldquo;we&rdquo; of the notice. Max 80 characters.</p>
+        </div>
+        <div>
+          <label class="admin-label" for="privacy-contact">Privacy contact</label>
+          <input id="privacy-contact" type="text" data-bind="privacy.contact"
+                 placeholder="privacy@example.com" />
+          <p class="admin-hint">
+            Email address or https URL where people send privacy requests.
+            Leave blank and the notice will say you haven&rsquo;t published one.
+          </p>
+        </div>
+      </div>
+
+      <div class="admin-row">
+        <div>
+          <label class="admin-label" for="privacy-snippet-category">What is your &lt;head&gt; snippet?</label>
+          <select id="privacy-snippet-category">
+            <option value="none">Nothing / no tracking</option>
+            <option value="essential">Essential &mdash; site needs it to work</option>
+            <option value="analytics">Analytics &mdash; measures traffic</option>
+            <option value="advertising">Advertising &mdash; targeted ads or pixels</option>
+          </select>
+          <p class="admin-hint">
+            Analytics and advertising snippets are withheld from visitors who
+            opt out. Essential ones always load. If you leave a snippet
+            unclassified it is treated as analytics, which is the safer guess.
+          </p>
+        </div>
+        <div>
+          <label class="admin-label" for="privacy-font-source">Public page fonts</label>
+          <select id="privacy-font-source">
+            <option value="google">Google Fonts (default)</option>
+            <option value="system">System fonts &mdash; no third-party request</option>
+          </select>
+          <p class="admin-hint">
+            Google Fonts discloses each visitor&rsquo;s IP address and browser to
+            Google. Either way, the request is dropped automatically for anyone
+            who has opted out.
+          </p>
+        </div>
+      </div>
+
+      <label class="admin-label" for="privacy-snippet-description">Name the tracker</label>
+      <input id="privacy-snippet-description" type="text" data-bind="privacy.snippetDescription"
+             placeholder="Plausible Analytics, self-hosted" />
+      <p class="admin-hint">
+        What your snippet is and who receives the data. Naming the third party
+        is a required disclosure in every state that has a privacy law. Max 160
+        characters. Ignored when the category above is &ldquo;nothing&rdquo;.
+      </p>
+
+      <label class="admin-label" for="privacy-retention">Data retention</label>
+      <textarea id="privacy-retention" data-bind="privacy.retention" rows="3"
+                placeholder="How long you keep server logs and backups."></textarea>
+      <p class="admin-hint">
+        Optional. Leave blank to use a sensible default paragraph. Max 300 characters.
+      </p>
+
+      <label class="admin-label" for="privacy-effective">Notice effective date</label>
+      <input id="privacy-effective" type="date" data-bind="privacy.effective" />
+      <p class="admin-hint">
+        Optional. Also published in
+        <code>/.well-known/gpc.json</code>, the machine-readable declaration
+        that this site honors Global Privacy Control.
+      </p>
+
+      <div id="privacy-status" class="admin-hint"></div>
     </section>
 
     <!-- ============== Announcement banner =============== -->

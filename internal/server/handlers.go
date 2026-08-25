@@ -35,21 +35,71 @@ type indexData struct {
 	IconPath          template.JS
 	RawHeadSnippet    template.HTML
 	BannerDurationSec int
+
+	// UseWebFonts reports whether this response may link out to Google
+	// Fonts. False when the operator chose system fonts or when this
+	// visitor has opted out; the CSS font stacks fall back on their own.
+	UseWebFonts bool
+	// FontsURL is the Google Fonts stylesheet URL. Only meaningful when
+	// UseWebFonts is true.
+	FontsURL template.URL
+
+	// PrivacyLinkLabel is the footer link text. California wants the
+	// specific phrase "Your Privacy Choices" (with the standard icon)
+	// on sites that sell or share personal information; a site that
+	// only measures gets a plain "Privacy" link to the same notice.
+	PrivacyLinkLabel string
+	// ShowOptOutIcon pairs the standardized opt-out toggle glyph with
+	// the link. Only used in the sell/share case.
+	ShowOptOutIcon bool
 }
 
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	cfg := s.opts.Store.Get()
+
+	// Everything below this line depends on the visitor's opt-out
+	// state, so the response must not be cached across visitors with
+	// different signals.
+	markPrivacyVary(w)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, must-revalidate")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
+
+	out := optedOut(r)
+
+	// The head snippet is withheld from an opted-out visitor whenever
+	// it's classified as analytics or advertising. An "essential"
+	// snippet always renders — suppressing it would break the site,
+	// and strictly necessary processing needs no opt-out.
+	snippet := cfg.Meta.HeadSnippet
+	if out && cfg.SnippetIsSuppressible() {
+		snippet = ""
+	}
+
+	// Google Fonts is a third-party request that discloses the
+	// visitor's IP address and User-Agent before they've read a word
+	// of the notice. An opt-out signal takes it off the page entirely.
+	useWebFonts := cfg.Privacy.FontSource != config.FontSourceSystem && !out
+
+	label := "Privacy"
+	showIcon := false
+	if cfg.SellsOrShares() {
+		label = "Your Privacy Choices"
+		showIcon = true
+	}
 
 	// Buffer the render so a template error doesn't leave a half-
 	// written body on the wire.
 	data := indexData{
 		Config:            cfg,
 		Year:              time.Now().Year(),
-		RawHeadSnippet:    template.HTML(cfg.Meta.HeadSnippet),
+		RawHeadSnippet:    template.HTML(snippet),
 		BannerDurationSec: bannerDurationSec(cfg.Banner.Speed),
+		UseWebFonts:       useWebFonts,
+		FontsURL: googleFontsURL(
+			cfg.Theme.FontDisplay, cfg.Theme.FontBody, cfg.Theme.FontMono),
+		PrivacyLinkLabel: label,
+		ShowOptOutIcon:   showIcon,
 	}
 	var buf bytes.Buffer
 	if err := s.tpl.Execute(&buf, data); err != nil {

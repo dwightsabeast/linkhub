@@ -1,5 +1,5 @@
 {
-"profile": {
+  "profile": {
     "name": "Your Studio",
     "tagline": "Independent media",
     "bio": "Stories, essays, and a weekly newsletter from a one-person studio.",
@@ -7,15 +7,14 @@
     "avatarSize": 96,
     "avatarShape": 50,
     "location": "On the internet"
-},
-"theme": {
+  },
+  "theme": {
     "mode": "auto",
     "accent": "#3D5A4C",
     "accentDark": "#8FB3A4",
     "fontDisplay": "Fraunces",
     "fontBody": "Geist",
     "fontMono": "JetBrains Mono"
-}
   },
   "meta": {
     "title": "Your Studio",
@@ -64,5 +63,14 @@
     "textColor": "#FFFFFF",
     "scroll": false,
     "speed": 6
+  },
+  "privacy": {
+    "operator": "",
+    "contact": "",
+    "snippetCategory": "analytics",
+    "snippetDescription": "",
+    "fontSource": "google",
+    "retention": "",
+    "effective": ""
   }
 }

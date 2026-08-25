@@ -9,9 +9,13 @@
    Public page is fixed to light theme. No [data-theme="dark"]
    block here — the admin tool has its own theme handling.
 
-   Fonts come from Google Fonts. Self-hosting is on the roadmap
-   (see README caveats); for now the @import is the lightweight
-   trade.
+   Fonts come from Google Fonts by default, but that is now a
+   privacy setting rather than a given: privacy.fontSource = "system"
+   drops the third-party request, and it is dropped automatically for
+   any visitor who has opted out (Sec-GPC, DNT, or the site's own
+   control). The stacks below therefore always name real local
+   fallbacks — when the webfont link is absent the page must still
+   look deliberate, not broken.
    ============================================================ */
 
 :root {
@@ -345,4 +349,231 @@ body::before {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* ============================================================
+   Footer — now always present, because it carries the privacy
+   notice link even when the operator sets no copyright line.
+   ============================================================ */
+.footer-line { margin: 0; }
+
+.footer-privacy {
+  margin: 8px 0 0;
+  text-transform: none;
+  letter-spacing: 0.06em;
+}
+
+.privacy-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--ink-faint);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color 0.2s var(--ease), border-color 0.2s var(--ease);
+}
+.privacy-link:hover {
+  color: var(--accent);
+  border-bottom-color: var(--rule);
+}
+.privacy-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+/* The toggle glyph rides small and optically centered next to
+   0.7rem mono type. */
+.privacy-link-icon { display: inline-flex; }
+.privacy-link-icon svg { width: 14px; height: 14px; }
+
+/* ============================================================
+   Prose pages (/privacy)
+
+   Same paper, wider measure. The profile page is a 520px column of
+   short strings; a legal notice is long-form text and needs room to
+   breathe or it turns into a wall.
+   ============================================================ */
+.page-prose {
+  max-width: 680px;
+  text-align: left;
+  padding-bottom: 48px;
+}
+
+.page-prose p {
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: var(--ink-soft);
+  margin: 0 0 16px;
+}
+
+.prose-back {
+  font-family: var(--font-mono); font-size: 0.7rem;
+  letter-spacing: 0.1em; margin-bottom: 28px;
+}
+.prose-back a {
+  color: var(--ink-faint); text-decoration: none;
+}
+.prose-back a:hover { color: var(--accent); }
+
+.prose-head { margin-bottom: 36px; }
+
+.prose-title {
+  font-family: var(--font-display); font-weight: 480;
+  font-size: clamp(1.9rem, 4.5vw, 2.4rem);
+  line-height: 1.1; letter-spacing: -0.02em;
+  margin: 0 0 10px;
+}
+
+.prose-sub {
+  font-family: var(--font-mono); font-size: 0.7rem;
+  text-transform: uppercase; letter-spacing: 0.14em;
+  color: var(--ink-faint); margin: 0;
+}
+
+.prose-h2 {
+  font-family: var(--font-display); font-weight: 500;
+  font-size: 1.25rem; letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 36px 0 12px;
+  padding-top: 20px;
+  border-top: 1px solid var(--rule);
+}
+
+.prose-small {
+  font-size: 0.82rem !important;
+  line-height: 1.6 !important;
+  color: var(--ink-faint) !important;
+}
+
+.prose-link {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid var(--rule);
+}
+.prose-link:hover { border-bottom-color: var(--accent); }
+
+.page-prose code {
+  font-family: var(--font-mono); font-size: 0.82em;
+  background: var(--accent-soft);
+  padding: 1px 5px; border-radius: 4px;
+  overflow-wrap: anywhere;
+}
+
+/* Tables scroll inside their own box rather than pushing the page
+   sideways on a phone. */
+.prose-table-wrap {
+  overflow-x: auto;
+  margin: 0 0 16px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elev);
+}
+.prose-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 0.85rem; line-height: 1.5;
+}
+.prose-table th, .prose-table td {
+  text-align: left; padding: 10px 14px;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+.prose-table tbody tr:last-child td { border-bottom: 0; }
+.prose-table th {
+  font-family: var(--font-mono); font-size: 0.68rem;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--ink-faint); font-weight: 500;
+  white-space: nowrap;
+}
+.prose-table td { color: var(--ink-soft); }
+.prose-table td:first-child { white-space: nowrap; }
+
+.prose-foot {
+  margin-top: 48px; padding-top: 24px;
+  border-top: 1px solid var(--rule);
+  animation: none;
+}
+
+/* ============================================================
+   The opt-out control
+
+   Raised out of the prose into its own card: on a privacy notice
+   this is the only part that *does* anything, so it should not read
+   as another paragraph.
+   ============================================================ */
+.privacy-choices {
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 22px 24px 24px;
+  box-shadow: var(--shadow-card);
+  margin-bottom: 8px;
+}
+.privacy-choices .prose-h2 {
+  margin-top: 0; padding-top: 0; border-top: 0;
+}
+
+.privacy-flash {
+  font-family: var(--font-mono); font-size: 0.72rem !important;
+  letter-spacing: 0.06em;
+  color: var(--accent) !important;
+  background: var(--accent-soft);
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  margin: 0 0 14px !important;
+}
+
+.privacy-state { margin-bottom: 14px !important; }
+.privacy-state strong { color: var(--ink); }
+.privacy-state-out strong { color: var(--accent); }
+
+.privacy-form {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  margin: 0 0 14px;
+}
+
+.privacy-btn {
+  flex: 1 1 auto; min-width: 200px;
+  font-family: var(--font-body); font-size: 0.86rem; font-weight: 500;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  padding: 11px 16px;
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease), background 0.2s var(--ease),
+              transform 0.2s var(--ease);
+}
+.privacy-btn:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+.privacy-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* The button matching the visitor's current state is marked, not
+   disabled — re-affirming a choice should always be possible. */
+.privacy-btn.is-current {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  cursor: default;
+}
+.privacy-btn.is-current::after {
+  content: " \00B7 current";
+  font-family: var(--font-mono); font-size: 0.68em;
+  letter-spacing: 0.08em; color: var(--ink-faint);
+  text-transform: uppercase;
+}
+
+.privacy-warn {
+  background: var(--accent-soft);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-size: 0.88rem !important;
+}
+
+@media (max-width: 480px) {
+  .privacy-btn { min-width: 100%; }
+  .privacy-choices { padding: 18px 16px 20px; }
 }
