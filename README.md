@@ -232,6 +232,14 @@ Environment variables read at startup:
 - `AUTH_MODE` — `trust_proxy`, `basic`, `form`, or `none`. The binary defaults to `trust_proxy` when unset; the installer writes `form` for new installs.
 - `BASIC_AUTH_USER` / `BASIC_AUTH_HASH` — required for `basic`; the initial credential (bootstrap) for `form`. Once you change a `form` login from the admin, `auth.json` in the data dir takes over and these are ignored. **Quote the hash with single quotes** in the env file — it contains `$`, which the shell would otherwise expand on load.
 
+`profile.avatar` and `meta.favicon` must be **local paths** (`/assets/…`,
+`/static/…`). The server rejects an absolute URL on save: the public page
+renders these into a `src`/`href` the visitor's browser fetches, so an
+off-site value would disclose every visitor's IP to that host on every page
+load — while `/privacy`, which is generated from this same config, went on
+describing a site that makes no third-party requests. Use the **Upload
+new…** button rather than pasting a URL.
+
 Length budgets enforced by the server on save: name 32, tagline 60, bio 240, location 60, link label 36, link description 60, footer 80, meta title 100, meta description 200. Up to 12 primary links and 12 social pills. Privacy fields: operator 80, contact 120, tracker name 160, retention 300.
 
 The `privacy` block in `config.json` — all fields optional, all editable from the admin:
@@ -294,8 +302,10 @@ Other useful targets: `make tidy`, `make fmt`, `make vet`, `make test`, `make cl
 ├── web/
 │   ├── public/               profile + privacy templates, styles, avatar
 │   └── admin/                admin shell HTML, CSS, JS
-├── scripts/
-│   └── linkhub.sh            Proxmox VE installer
+├── ct/
+│   └── linkhub.sh            Proxmox VE wrapper (create LXC, update)
+├── install/
+│   └── linkhub-install.sh    in-container install steps
 ├── config.default.json       starter content shipped in the tarball
 ├── Makefile
 └── .github/workflows/release.yml
@@ -322,7 +332,12 @@ This is a working v0. The core path — install, edit, render — is complete. T
 - **Static assets live on disk.** They're not embedded in the binary via `embed.FS`. Trade-off is that `LINKHUB_STATIC_DIR` has to point at the shipped tree; gain is that you can hot-edit a CSS file on the running LXC for debugging.
 - **Fonts via Google Fonts CDN.** Self-hosting is a follow-up. The `@import` at the top of both stylesheets is the lightweight choice for now.
 - **No ETag/If-Match on `/api/config`.** Two browser tabs editing concurrently → last save wins. Fine for a single-user tool; would matter if it ever became multi-user.
-- **No tests yet.** The `make test` target works, the suite is empty.
+- **Tests cover the logic, not the HTTP surface.** `make test` runs unit
+  tests for config validation, the store's concurrent writes, the opt-out
+  precedence matrix, the open-redirect guard, login rate limiting, and the
+  three-way icon-set sync. There are no end-to-end handler tests yet.
+  CI runs `gofmt`, `go vet`, `go test -race`, `make build`, and
+  `govulncheck` on every push.
 
 ## License
 

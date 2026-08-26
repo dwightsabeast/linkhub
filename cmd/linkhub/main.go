@@ -1,7 +1,7 @@
 // Command linkhub is the LinkHub HTTP server.
 //
 // Configuration is entirely environment-driven. The install script
-// (scripts/linkhub.sh) writes /etc/linkhub/linkhub.env and the OpenRC
+// (install/linkhub-install.sh) writes /etc/linkhub/linkhub.env and the OpenRC
 // service file sources it before exec.
 //
 // Variables:
