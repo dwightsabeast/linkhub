@@ -1,6 +1,7 @@
 package server
 
 import "html/template"
+
 // iconPaths is a verbatim port of ICON_PATHS from
 // ui_kits/linkhub/Icon.jsx. The values are the inner SVG content for
 // each icon — the template wraps them in <svg width=… height=… …>.
@@ -83,6 +84,7 @@ var iconPaths = map[string]string{
 	"matrix":       `<path d="M3 3v18M21 3v18M5 6v12M19 6v12M9 9c0-1 1-2 2-2s2 1 2 2v6"/>`,
 	"rss-feed":     `<path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/>`,
 }
+
 // iconSVG returns the inner SVG markup for a named icon, ready to be
 // dropped into a template. Returns an empty string for unknown names
 // so the template renders cleanly rather than erroring.
