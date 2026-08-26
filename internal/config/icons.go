@@ -1,5 +1,7 @@
 package config
 
+import "sort"
+
 // validIcons is the set of icon names accepted in Link.Icon and
 // Social.Platform. It mirrors the keys of ICON_PATHS in
 // ui_kits/linkhub/Icon.jsx — keep them in sync when adding glyphs.
@@ -33,4 +35,18 @@ var validIcons = map[string]struct{}{
 func ValidIcon(name string) bool {
 	_, ok := validIcons[name]
 	return ok
+}
+
+// IconNames returns the valid icon names in sorted order. Exported so
+// the server package's sync test can assert that every name this
+// allowlist accepts actually has SVG paths to render — a name that
+// validates but has no path draws an empty <svg> with no error
+// anywhere, which is precisely the failure that needs a test.
+func IconNames() []string {
+	names := make([]string, 0, len(validIcons))
+	for name := range validIcons {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }

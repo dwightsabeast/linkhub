@@ -1,0 +1,92 @@
+# ci.yml — check every push and pull request.
+#
+# Until this existed the only workflow triggered on `v*` tags, so a
+# broken main wasn't discovered until someone cut a release. The steps
+# here are the cheap ones that would have caught what was already
+# wrong in the tree:
+#
+#   tidy    — go.sum was never committed, so a fresh clone couldn't
+#             build at all. Building here from the committed sums, and
+#             failing if `go mod tidy` wants to change them, keeps that
+#             from recurring.
+#   fmt     — internal/config/config.go had mixed tabs and spaces that
+#             `make fmt` would have fixed and nothing ever ran.
+#   test    — with -race, because the config store is written from
+#             concurrent request handlers.
+#   vuln    — govulncheck against the one dependency we have.
+
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: fmt, vet, test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache: true
+
+      - name: verify go.mod and go.sum are current
+        # Not `go mod tidy` on its own: that silently repairs a missing
+        # or stale go.sum instead of reporting it, which is exactly how
+        # the absent go.sum went unnoticed.
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+
+      - name: gofmt
+        # gofmt -l prints the files it would rewrite. Anything on stdout
+        # is a failure; print the diff so the log says what to fix.
+        run: |
+          unformatted=$(gofmt -l cmd internal)
+          if [ -n "$unformatted" ]; then
+            echo "These files are not gofmt'd:"
+            echo "$unformatted"
+            echo
+            gofmt -d cmd internal
+            exit 1
+          fi
+
+      - name: vet
+        run: go vet ./...
+
+      - name: test
+        run: go test -race ./...
+
+      - name: build
+        # Same flags the release uses, so a release-only build failure
+        # can't hide behind a passing test run.
+        run: make build
+
+  vuln:
+    name: govulncheck
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache: true
+
+      - name: govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
