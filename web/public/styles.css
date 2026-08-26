@@ -27,17 +27,31 @@
   --ink-faint:    #8A8478;
   --rule:         #D8D2C2;
 
+  /* --accent is overridden per-page by the inline <style> block the
+     profile template emits from theme.accent. The value here is the
+     fallback for any page that doesn't emit one (e.g. /privacy) and
+     matches config.default.json. --accent-soft derives from whatever
+     --accent resolves to; the rgba() line above it is the fallback for
+     browsers without color-mix(). */
   --accent:       #3D5A4C;
   --accent-soft:  rgba(61, 90, 76, 0.08);
+  --accent-soft:  color-mix(in srgb, var(--accent) 8%, transparent);
 
   /* ---------- Shadow ---------- */
   --shadow-card:  0 1px 0 rgba(20,19,15,0.04), 0 8px 24px -12px rgba(20,19,15,0.12);
   --shadow-hover: 0 1px 0 rgba(20,19,15,0.06), 0 16px 36px -16px rgba(20,19,15,0.22);
 
   /* ---------- Type ---------- */
-  --font-display: "Fraunces", "Iowan Old Style", "Palatino", Georgia, serif;
-  --font-body:    "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-  --font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  /* Only the family *name* comes from config, via --font-*-name in the
+     inline <style> the profile template emits. The fallback chain lives
+     here and is what actually renders whenever the webfont is absent —
+     system-font mode, or a visitor who opted out. Keep it that way: a
+     stack duplicated in the template would sit later in the cascade and
+     silently win, which is how the short chain used to shadow this one.
+     The var() defaults match config.default.json. */
+  --font-display: var(--font-display-name, "Fraunces"), "Iowan Old Style", "Palatino", Georgia, serif;
+  --font-body:    var(--font-body-name, "Geist"), -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono:    var(--font-mono-name, "JetBrains Mono"), ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
   /* ---------- Radii ---------- */
   --radius-sm:    8px;

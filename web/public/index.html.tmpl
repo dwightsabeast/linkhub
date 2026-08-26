@@ -34,19 +34,25 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="{{.FontsURL}}" />
 {{- end}}
+{{- /* Config-driven custom properties. We emit only the *values* the
+       operator controls — never a whole font stack: styles.css owns the
+       fallback chains, and duplicating a short one here would silently
+       override the good one whenever the webfont is absent (system
+       fonts, or a visitor who opted out). --accent-soft is derived
+       from --accent in styles.css. */ -}}
 <style>
 :root {
   --avatar-size: {{.Profile.AvatarSize}}px;
   --avatar-shape: {{.Profile.AvatarShape}}%;
-  --font-display: "{{.Theme.FontDisplay}}", Georgia, serif;
-  --font-body: "{{.Theme.FontBody}}", -apple-system, sans-serif;
-  --font-mono: "{{.Theme.FontMono}}", ui-monospace, monospace;
+  --font-display-name: "{{.Theme.FontDisplay}}";
+  --font-body-name: "{{.Theme.FontBody}}";
+  --font-mono-name: "{{.Theme.FontMono}}";
+  --accent: {{.Theme.Accent}};
   --banner-bg: {{.Banner.Background}};
   --banner-fg: {{.Banner.TextColor}};
   --banner-duration: {{.BannerDurationSec}}s;
 }
 </style>
-<style>:root { --avatar-size: {{.Profile.AvatarSize}}px; --avatar-shape: {{.Profile.AvatarShape}}%; }</style>
 {{- /* Open Graph / Twitter — minimal, no images. Avatar isn't a
        reliable OG card image (1:1 instead of 1.91:1) so we omit. */ -}}
 <meta property="og:title" content="{{.Meta.Title}}" />
@@ -78,8 +84,9 @@
 <main class="page">
   <header class="profile">
     <div class="avatar-wrap">
-      {{- /* Avatar URL: served by the avatar handler at /avatar.
-             Falls back to bundled default if the field is empty. */ -}}
+      {{- /* Avatar URL: an /assets/ path written by the upload handler,
+             or whatever profile.avatar holds. Falls back to the bundled
+             default if the field is empty. */ -}}
       <img class="avatar"
            src="{{if .Profile.Avatar}}{{.Profile.Avatar}}{{else}}/static/assets/avatar.svg{{end}}"
            alt="{{if .Profile.Name}}{{.Profile.Name}} avatar{{else}}avatar{{end}}" />
