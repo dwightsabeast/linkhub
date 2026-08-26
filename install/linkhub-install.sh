@@ -171,6 +171,49 @@ $STD rc-service linkhub start
 
 msg_ok "Created Service"
 
+# ── Log rotation ────────────────────────────────────────────────────
+# The server logs a line per request and OpenRC points both stdout and
+# stderr at one file, so without rotation /var/log/linkhub.log grows
+# without bound. The default container has 1 GB of disk, and the way
+# that ends is the daemon losing its ability to write config.json —
+# a full disk takes down editing, not just logging.
+#
+# busybox provides logrotate on Alpine but no cron fragment for it, so
+# install both the config and a daily hook.
+msg_info "Configuring log rotation"
+
+$STD apk add --no-cache logrotate
+
+cat >/etc/logrotate.d/linkhub <<'ROTATE'
+/var/log/linkhub.log {
+    daily
+    rotate 7
+    maxsize 10M
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    su linkhub linkhub
+    create 0640 linkhub linkhub
+}
+ROTATE
+chmod 644 /etc/logrotate.d/linkhub
+
+# copytruncate above means we never have to signal or restart the
+# daemon to reopen its file — it keeps writing to the same descriptor
+# and logrotate truncates underneath it. Losing a few lines mid-rotate
+# is an acceptable trade for never bouncing the service.
+if [ -d /etc/periodic/daily ] && [ ! -f /etc/periodic/daily/logrotate ]; then
+  cat >/etc/periodic/daily/logrotate <<'CRON'
+#!/bin/sh
+exec /usr/sbin/logrotate /etc/logrotate.conf
+CRON
+  chmod +x /etc/periodic/daily/logrotate
+fi
+
+msg_ok "Configured log rotation"
+
 # ── Cleanup ─────────────────────────────────────────────────────────
 motd_ssh
 customize

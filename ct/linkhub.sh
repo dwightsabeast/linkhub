@@ -65,6 +65,18 @@ function update_script() {
     rc-service linkhub stop
     msg_ok "Stopped ${APP}"
 
+    # Back up config.json before the swap. The daemon tolerates config
+    # keys it doesn't recognize, so a rollback boots — but a release
+    # that rewrites the file in a new shape still leaves you with no
+    # copy of what you had. Keep the last one, timestamped.
+    if [ -f /var/lib/linkhub/config.json ]; then
+      cp -a /var/lib/linkhub/config.json         "/var/lib/linkhub/config.json.bak-$(date +%Y%m%d%H%M%S)"
+      # Keep the three most recent backups and no more; the container
+      # ships with 1 GB of disk.
+      ls -1t /var/lib/linkhub/config.json.bak-* 2>/dev/null |
+        tail -n +4 | xargs -r rm -f
+    fi
+
     msg_info "Updating ${APP} to ${RELEASE}"
     mv linkhub-stage/linkhub /opt/linkhub/linkhub
     mv linkhub-stage/linkhub-hash /opt/linkhub/linkhub-hash

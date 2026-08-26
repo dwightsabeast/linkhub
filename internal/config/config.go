@@ -13,6 +13,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -22,30 +23,30 @@ import (
 
 // Profile is the header block of the public page.
 type Profile struct {
-	Name     string `json:"name"`
-	Tagline  string `json:"tagline"`
-	Bio      string `json:"bio"`
-	Avatar   string `json:"avatar"`
-	AvatarSize int    `json:"avatarSize,omitempty"`
+	Name        string `json:"name"`
+	Tagline     string `json:"tagline"`
+	Bio         string `json:"bio"`
+	Avatar      string `json:"avatar"`
+	AvatarSize  int    `json:"avatarSize,omitempty"`
 	AvatarShape int    `json:"avatarShape,omitempty"` // 0 = square, 50 = circle
-	Location string `json:"location"`
+	Location    string `json:"location"`
 }
 
 // Theme controls accent + light/dark behavior.
 type Theme struct {
-	Mode       string `json:"mode"`       // "auto" | "light" | "dark"
-	Accent     string `json:"accent"`     // hex, light theme
-	AccentDark string `json:"accentDark"` // hex, dark theme
+	Mode        string `json:"mode"`                  // "auto" | "light" | "dark"
+	Accent      string `json:"accent"`                // hex, light theme
+	AccentDark  string `json:"accentDark"`            // hex, dark theme
 	FontDisplay string `json:"fontDisplay,omitempty"` // e.g. "Fraunces"
-    FontBody    string `json:"fontBody,omitempty"`    // e.g. "Geist"
-    FontMono    string `json:"fontMono,omitempty"`    // e.g. "JetBrains Mono"
+	FontBody    string `json:"fontBody,omitempty"`    // e.g. "Geist"
+	FontMono    string `json:"fontMono,omitempty"`    // e.g. "JetBrains Mono"
 }
 
 // Meta is HTML <head> content.
 type Meta struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
-	Favicon     string `json:"favicon"`    // path to custom favicon; empty = bundled default
+	Favicon     string `json:"favicon"`               // path to custom favicon; empty = bundled default
 	HeadSnippet string `json:"headSnippet,omitempty"` // custom HTML injected before </head>
 
 }
@@ -212,7 +213,7 @@ const (
 	maxLocation        = 60
 	maxLinkLabel       = 36
 	maxLinkDescription = 60
-	maxHeadSnippet	   = 2000
+	maxHeadSnippet     = 2000
 	maxFooter          = 80
 	maxLinks           = 12 // soft cap; visual rhythm degrades past ~8
 	maxSocial          = 12
@@ -228,6 +229,14 @@ const (
 // Store is the runtime cache of Config plus its on-disk path.
 // Reads (RLock) and writes (Lock) are mediated by mu.
 type Store struct {
+	// writeMu serializes writers end to end. A writer holds it across
+	// both the disk write and the in-memory swap, so two concurrent
+	// writes can never land on disk in one order and in memory in the
+	// other — which is what happened when SetAvatar released mu before
+	// calling atomicWrite. Readers take only mu, so a save never blocks
+	// a page render.
+	writeMu sync.Mutex
+
 	mu   sync.RWMutex
 	cfg  Config
 	path string
@@ -252,7 +261,12 @@ func (s *Store) reload() error {
 
 	var c Config
 	dec := json.NewDecoder(f)
-	dec.DisallowUnknownFields()
+	// Deliberately *not* DisallowUnknownFields. This decoder runs at
+	// boot against whatever is on disk, which includes a config written
+	// by a newer release than the one now starting. Refusing to boot on
+	// an unrecognized key turns a rollback into an outage. The admin's
+	// write path keeps the strict decoder (see DecodeStrict), where
+	// rejecting a typo is the correct answer.
 	if err := dec.Decode(&c); err != nil {
 		return fmt.Errorf("parse config: %w", err)
 	}
@@ -269,12 +283,19 @@ func (s *Store) reload() error {
 // Get returns a deep-ish copy of the current config. Slices are
 // re-allocated so the caller can't mutate the cached state through
 // shared backing arrays.
+//
+// make+copy rather than append-to-nil: appending zero elements to a nil
+// slice yields nil, which would send "links": null over /api/config for
+// a profile that simply has no links yet. applyDefaults guarantees both
+// are non-nil on load and the JSON contract should keep them that way.
 func (s *Store) Get() Config {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	c := s.cfg
-	c.Links = append([]Link(nil), s.cfg.Links...)
-	c.Social = append([]Social(nil), s.cfg.Social...)
+	c.Links = make([]Link, len(s.cfg.Links))
+	copy(c.Links, s.cfg.Links)
+	c.Social = make([]Social, len(s.cfg.Social))
+	copy(c.Social, s.cfg.Social)
 	return c
 }
 
@@ -285,6 +306,9 @@ func (s *Store) Save(c Config) error {
 	if err := Validate(&c); err != nil {
 		return err
 	}
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+
 	if err := atomicWrite(s.path, &c); err != nil {
 		return fmt.Errorf("write config: %w", err)
 	}
@@ -298,27 +322,42 @@ func (s *Store) Save(c Config) error {
 // /api/avatar takes after writing the file: it doesn't trust the
 // admin to round-trip the whole config through an upload handler.
 func (s *Store) SetAvatar(avatar string) error {
-	s.mu.Lock()
-	c := s.cfg
-	c.Profile.Avatar = avatar
-	s.cfg = c
-	s.mu.Unlock()
-	// Re-fetch under RLock semantics is fine because we hold no lock
-	// here; atomicWrite is its own critical section by virtue of
-	// rename(2) being atomic on the FS.
-	return atomicWrite(s.path, &c)
+	return s.mutate(func(c *Config) { c.Profile.Avatar = avatar })
 }
 
 // SetFavicon updates only the meta.favicon field. Same pattern as
 // SetAvatar: the favicon upload handler writes the file to disk,
 // then calls this to update the config reference.
 func (s *Store) SetFavicon(favicon string) error {
-	s.mu.Lock()
+	return s.mutate(func(c *Config) { c.Meta.Favicon = favicon })
+}
+
+// mutate applies fn to a copy of the live config, persists the result,
+// and swaps it in — all under writeMu so a concurrent Save can't
+// interleave and leave disk and memory disagreeing about which write
+// came last. fn must touch only scalar fields; the copy shares its
+// Links/Social backing arrays with the cached config.
+//
+// Validate is deliberately not run here. These setters write a value
+// the upload handler just constructed, not operator input, and running
+// the full validator would let unrelated pre-existing config problems
+// fail an avatar upload.
+func (s *Store) mutate(fn func(*Config)) error {
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+
+	s.mu.RLock()
 	c := s.cfg
-	c.Meta.Favicon = favicon
+	s.mu.RUnlock()
+
+	fn(&c)
+	if err := atomicWrite(s.path, &c); err != nil {
+		return fmt.Errorf("write config: %w", err)
+	}
+	s.mu.Lock()
 	s.cfg = c
 	s.mu.Unlock()
-	return atomicWrite(s.path, &c)
+	return nil
 }
 
 // atomicWrite writes c to a sibling .tmp file, fsyncs it, then
@@ -366,22 +405,22 @@ func applyDefaults(c *Config) {
 		c.Theme.AccentDark = "#8FB3A4"
 	}
 	if c.Theme.FontDisplay == "" {
-    	c.Theme.FontDisplay = "Fraunces"
+		c.Theme.FontDisplay = "Fraunces"
 	}
 	if c.Theme.FontBody == "" {
-    	c.Theme.FontBody = "Geist"
+		c.Theme.FontBody = "Geist"
 	}
 	if c.Theme.FontMono == "" {
-    	c.Theme.FontMono = "JetBrains Mono"
+		c.Theme.FontMono = "JetBrains Mono"
 	}
 	if c.Profile.Avatar == "" {
 		c.Profile.Avatar = "/assets/avatar.svg"
 	}
 	if c.Profile.AvatarSize == 0 {
-    	c.Profile.AvatarSize = 96
+		c.Profile.AvatarSize = 96
 	}
 	if c.Profile.AvatarShape == 0 {
-    	c.Profile.AvatarShape = 50
+		c.Profile.AvatarShape = 50
 	}
 	if c.Meta.Favicon == "" {
 		c.Meta.Favicon = "/static/favicon.svg"
@@ -439,6 +478,12 @@ func Validate(c *Config) error {
 	if err := checkLen("profile.location", c.Profile.Location, 0, maxLocation); err != nil {
 		return err
 	}
+	if err := checkAssetRef("profile.avatar", c.Profile.Avatar); err != nil {
+		return err
+	}
+	if err := checkAssetRef("meta.favicon", c.Meta.Favicon); err != nil {
+		return err
+	}
 	if err := checkLen("meta.title", c.Meta.Title, 0, maxMetaTitle); err != nil {
 		return err
 	}
@@ -456,28 +501,28 @@ func Validate(c *Config) error {
 		return err
 	}
 	if c.Profile.AvatarSize < 48 || c.Profile.AvatarSize > 200 {
-    return &ValidationError{Field: "profile.avatarSize", Message: "must be between 48 and 200"}
+		return &ValidationError{Field: "profile.avatarSize", Message: "must be between 48 and 200"}
 	}
 	if c.Profile.AvatarShape < 1 || c.Profile.AvatarShape > 50 {
-    return &ValidationError{Field: "profile.avatarShape", Message: "must be between 1 and 50"}
+		return &ValidationError{Field: "profile.avatarShape", Message: "must be between 1 and 50"}
 	}
 	var allowedFonts = map[string]bool{
-    	"Fraunces": true, "Geist": true, "JetBrains Mono": true,
-    	"Inter": true, "Lora": true, "Playfair Display": true,
-    	"Space Grotesk": true, "IBM Plex Sans": true,
-    	"IBM Plex Mono": true, "Fira Code": true,
-    	"Source Serif 4": true, "DM Sans": true,
-    	"DM Serif Display": true, "Sora": true,
+		"Fraunces": true, "Geist": true, "JetBrains Mono": true,
+		"Inter": true, "Lora": true, "Playfair Display": true,
+		"Space Grotesk": true, "IBM Plex Sans": true,
+		"IBM Plex Mono": true, "Fira Code": true,
+		"Source Serif 4": true, "DM Sans": true,
+		"DM Serif Display": true, "Sora": true,
 	}
 
 	if !allowedFonts[c.Theme.FontDisplay] {
-    	return &ValidationError{Field: "theme.fontDisplay", Message: "unsupported font"}
+		return &ValidationError{Field: "theme.fontDisplay", Message: "unsupported font"}
 	}
 	if !allowedFonts[c.Theme.FontBody] {
-    	return &ValidationError{Field: "theme.fontBody", Message: "unsupported font"}
+		return &ValidationError{Field: "theme.fontBody", Message: "unsupported font"}
 	}
 	if !allowedFonts[c.Theme.FontMono] {
-    	return &ValidationError{Field: "theme.fontMono", Message: "unsupported font"}
+		return &ValidationError{Field: "theme.fontMono", Message: "unsupported font"}
 	}
 	switch c.Theme.Mode {
 	case "auto", "light", "dark":
@@ -488,7 +533,7 @@ func Validate(c *Config) error {
 		return &ValidationError{Field: "links", Message: fmt.Sprintf("too many links (max %d)", maxLinks)}
 	}
 	if err := checkLen("meta.headSnippet", c.Meta.HeadSnippet, 0, maxHeadSnippet); err != nil {
-    	return err
+		return err
 	}
 
 	// Banner. Colors and speed are always validated because
@@ -604,6 +649,44 @@ func checkHex(field, v string) error {
 		if !((r >= '0' && r <= '9') || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F')) {
 			return &ValidationError{Field: field, Message: "must be a 7-char hex color (#rrggbb)"}
 		}
+	}
+	return nil
+}
+
+// checkAssetRef validates a reference to an image the public page will
+// load on the visitor's behalf: profile.avatar and meta.favicon. Both
+// are rendered straight into a src/href the browser fetches, so an
+// off-site value here would hand every visitor's IP and User-Agent to a
+// third party on every page load — silently, and while /privacy went on
+// describing a site that makes no third-party requests. That is the one
+// way the generated notice can become false, so the schema refuses it.
+//
+// We accept only a rooted local path: what the upload handler writes
+// ("/assets/avatar.png"), plus the "?v=" cache-buster it appends, and
+// the bundled defaults under /static. Empty is fine — applyDefaults
+// fills both fields on the next load.
+func checkAssetRef(field, raw string) error {
+	if raw == "" {
+		return nil
+	}
+	if !strings.HasPrefix(raw, "/") || strings.HasPrefix(raw, "//") {
+		return &ValidationError{
+			Field:   field,
+			Message: "must be a local path starting with / (an off-site URL would disclose every visitor's IP to that host)",
+		}
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return &ValidationError{Field: field, Message: "is not a valid path"}
+	}
+	// url.Parse leaves both empty for a plain "/a/b". A value that
+	// still carries either smuggled a scheme or an authority past the
+	// prefix check above.
+	if u.Scheme != "" || u.Host != "" {
+		return &ValidationError{Field: field, Message: "must not include a scheme or a host"}
+	}
+	if u.Path != path.Clean(u.Path) {
+		return &ValidationError{Field: field, Message: "must not contain '.' or '..' segments"}
 	}
 	return nil
 }

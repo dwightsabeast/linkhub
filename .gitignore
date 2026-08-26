@@ -1,0 +1,16 @@
+# Build output — `make build` / `make tarball`.
+bin/
+dist/
+
+# Flattened static tree — `make dev-assets` rebuilds it from
+# web/public/ + web/admin/ on every `make dev`.
+web/static/
+
+# Local dev state — `make dev-data` seeds this from config.default.json.
+# Never commit it: once you change the admin password from the UI it
+# grows an auth.json holding the bcrypt hash of your live credential.
+data/
+
+# Editor / OS noise.
+.DS_Store
+*.swp

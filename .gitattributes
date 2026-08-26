@@ -1,1 +1,9 @@
-*.sh text eol=lf
+# Normalize text to LF in the repository. Everything here is built and
+# run on Linux; a CRLF that reaches a shell script makes it unrunnable
+# and a CRLF in go.mod churns the diff every time `go mod tidy` runs.
+* text=auto eol=lf
+
+# Binary-ish assets git shouldn't touch.
+*.png binary
+*.ico binary
+*.woff2 binary

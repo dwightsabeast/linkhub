@@ -6,7 +6,7 @@
 #   linkhub-linux-amd64.tar.gz.sha256
 #
 # Uploaded to the GitHub Release page that the tag created. The
-# install script (scripts/linkhub.sh) fetches from
+# install script (install/linkhub-install.sh) fetches from
 # /releases/latest/download/linkhub-linux-amd64.tar.gz, which GitHub
 # resolves to whatever the most recent release is.
 #
@@ -45,11 +45,19 @@ jobs:
           # first run.
           cache: true
 
-      - name: tidy
-        run: go mod tidy
+      - name: verify go.mod and go.sum are current
+        # Was a bare `go mod tidy`, which silently regenerated a go.sum
+        # that had never been committed — so releases built from sums
+        # nobody had reviewed, and a fresh clone couldn't build at all.
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
 
       - name: vet
         run: make vet
+
+      - name: test
+        run: go test -race ./...
 
       - name: tarball
         # `make tarball` builds both binaries with version stamping
