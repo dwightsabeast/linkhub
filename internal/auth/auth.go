@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -82,6 +83,11 @@ type Config struct {
 	// the admin changes the login from the UI it is written here and
 	// takes precedence over the env user/hash. nil outside ModeForm.
 	credentials *credStore
+
+	// guard bounds unauthenticated password checking — see
+	// ratelimit.go. Built for the two modes that actually run bcrypt
+	// (basic and form); nil in trust_proxy and none, which never do.
+	guard *loginGuard
 }
 
 // NewConfig validates inputs and returns an auth Config.
@@ -114,6 +120,12 @@ func NewConfig(mode Mode, user, hash, credPath string) (*Config, error) {
 		c.hash = []byte(hash)
 	}
 
+	// Both credential modes check passwords on unauthenticated input,
+	// so both need the guard.
+	if mode == ModeBasic || mode == ModeForm {
+		c.guard = newLoginGuard()
+	}
+
 	if mode == ModeForm {
 		c.sessions = newSessionStore(defaultSessionTTL)
 		store, err := newCredStore(credPath)
@@ -144,7 +156,22 @@ func (c *Config) Middleware(next http.Handler) http.Handler {
 	case ModeBasic:
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			user, pass, ok := r.BasicAuth()
-			if !ok || !c.verify(user, pass) {
+			if !ok {
+				c.challenge(w)
+				return
+			}
+			// Rate-limit before bcrypt, not after: the whole point is
+			// to not pay for the hash on an attempt we've already
+			// decided to refuse.
+			ok, retry := c.checkPassword(clientKey(r), func() bool {
+				return c.verify(user, pass)
+			})
+			if retry > 0 {
+				w.Header().Set("Retry-After", retryAfterSeconds(retry))
+				http.Error(w, "Too many sign-in attempts", http.StatusTooManyRequests)
+				return
+			}
+			if !ok {
 				c.challenge(w)
 				return
 			}
@@ -215,6 +242,37 @@ func (c *Config) verify(user, pass string) bool {
 	userOK := subtle.ConstantTimeCompare([]byte(user), []byte(wantUser)) == 1
 	passOK := bcrypt.CompareHashAndPassword([]byte(wantHash), []byte(pass)) == nil
 	return userOK && passOK
+}
+
+// checkPassword runs one rate-limited credential check. compare is the
+// actual bcrypt comparison, deferred so it never runs for an attempt
+// the guard has already refused.
+//
+// Returns (ok, 0) for a decided attempt — ok reports whether the
+// credential was right — or (false, d) when the caller should answer
+// 429 and tell the client to come back in d.
+func (c *Config) checkPassword(key string, compare func() bool) (ok bool, retryAfter time.Duration) {
+	if c.guard == nil {
+		return compare(), 0
+	}
+	if wait, blocked := c.guard.blocked(key); blocked {
+		return false, wait
+	}
+	if !c.guard.acquire() {
+		// At the concurrency ceiling. Refuse rather than queue —
+		// blocking would just move the exhaustion from CPU to held
+		// connections. A second is enough for the queue to drain.
+		return false, time.Second
+	}
+	verified := compare()
+	c.guard.release()
+
+	if !verified {
+		c.guard.recordFailure(key)
+		return false, 0
+	}
+	c.guard.clear(key)
+	return true, 0
 }
 
 // VerifyPassword checks pass against the current password only (no
@@ -326,9 +384,21 @@ func (c *Config) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		pass := r.PostForm.Get("password")
 		next := safeNext(r.PostForm.Get("next"))
 
+		// Rate-limit before bcrypt, not after: the whole point is to not
+		// pay for the hash on an attempt we've already decided to
+		// refuse. See ratelimit.go for what the two layers each defend.
+		verified, retry := c.checkPassword(clientKey(r), func() bool {
+			return c.verify(user, pass)
+		})
+		if retry > 0 {
+			w.Header().Set("Retry-After", retryAfterSeconds(retry))
+			w.WriteHeader(http.StatusTooManyRequests)
+			c.renderLogin(w, retryMessage(retry), next)
+			return
+		}
 		// One generic error for either a bad username or bad password so
 		// we don't disclose which field was wrong.
-		if !c.verify(user, pass) {
+		if !verified {
 			w.WriteHeader(http.StatusUnauthorized)
 			c.renderLogin(w, "Incorrect username or password.", next)
 			return
